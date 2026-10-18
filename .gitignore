@@ -1,0 +1,8 @@
+# 비밀 값은 절대 커밋하지 않음 — GitHub Secrets에만 저장
+.env
+.env.*
+*.pem
+*.key
+secrets*
+__pycache__/
+.venv/
