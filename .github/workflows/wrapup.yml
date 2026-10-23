@@ -5,7 +5,12 @@ on:
     # GitHub cron은 UTC 기준 → KST = UTC+9
     # 평일 09:00, 18:00 KST
     - cron: "0 0,9 * * 1-5"
-  workflow_dispatch: # Actions 탭에서 수동 실행
+  workflow_dispatch: # Actions 탭 수동 실행 + 아이폰 단축어가 할 일 등록 직후 호출
+
+# 할 일을 연달아 등록해도 실행이 겹치지 않게 한 번에 하나씩, 대기는 최신 1개만 유지
+concurrency:
+  group: wrapup
+  cancel-in-progress: false
 
 jobs:
   wrapup:

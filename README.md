@@ -13,7 +13,7 @@
 ```
 
 - 서버가 필요 없습니다. 할 일 등록은 단축어가 Slack에 바로 올리고, 요약은 GitHub Actions가 정해진 시간에 실행합니다.
-- 끝낸 할 일에는 ✅ 리액션을 다세요. ✅가 없는 할 일은 다음 랩업에 "이월"로 계속 나옵니다(최대 7일).
+- 끝낸 할 일에는 ✅ 리액션을 다세요. ✅가 없는 할 일은 랩업에 계속 남습니다(최대 14일).
 
 ---
 
@@ -66,9 +66,25 @@
 
 > GitHub 예약 실행은 몇 분~십수 분 늦게 돌 수 있습니다.
 
+## 4. 할 일 등록 즉시 랩업 갱신 (선택)
+
+랩업은 **주마다 메시지 1개**이고, 실행될 때마다 그 메시지를 수정해서 최신 상태로 맞춥니다.
+단축어가 Slack에 올린 직후 GitHub Actions도 실행하게 하면 바로 반영됩니다.
+
+1. GitHub → Settings → Developer settings → **Fine-grained tokens** → Generate
+   - Repository access: **Only select repositories** → `slack-todo-bot`
+   - Permissions → Repository → **Actions: Read and write** (나머지는 건드리지 않기)
+2. 단축어에서 Slack 전송 다음에 **URL 콘텐츠 가져오기** 동작을 하나 더 추가
+   - URL: `https://api.github.com/repos/yuna0102/slack-todo-bot/actions/workflows/wrapup.yml/dispatches`
+   - 방법: POST
+   - 헤더: `Authorization` = `Bearer github_pat_…`, `Accept` = `application/vnd.github+json`
+   - 요청 본문: JSON, `ref` = `main`
+
+✅ 리액션만 단 경우엔 다음 할 일 등록 때나 정해진 시간 실행 때 반영됩니다.
+
 ## 옵션 (워크플로 `env`에 추가)
 
-- `LOOKBACK_DAYS` (기본 `7`): 미완료 할 일을 며칠 전까지 이월할지
+- `LOOKBACK_DAYS` (기본 `14`): 미완료 할 일을 며칠 전까지 이월할지
 - `POST_WHEN_EMPTY` (기본 `false`): 할 일이 없어도 "없어요" 메시지를 보낼지
 
 ## 로컬에서 테스트

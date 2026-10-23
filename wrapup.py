@@ -1,8 +1,8 @@
-"""Slack 할 일 채널을 읽어서 Claude로 랩업 요약을 만들어 같은 채널에 올린다.
+"""Slack 할 일 채널을 읽어서 Claude로 이번 주 랩업을 만들고, 주마다 메시지 하나를 계속 갱신한다.
 
-- 마지막 랩업 이후 올라온 할 일 = "새 할 일"
-- 그 이전에 올라왔지만 ✅ 리액션이 없는 할 일 = "이월된 할 일" (LOOKBACK_DAYS 이내)
-- ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료
+- 할 일이 등록될 때(단축어 → workflow_dispatch)와 정해진 시간에 실행된다
+- 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 있으면 chat.update, 없으면 새로 올림
+- ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
 import os
@@ -21,7 +21,7 @@ LIST_TITLE = "*TBD List ට ̫ ට՞ ՞*"
 
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_TARGET = os.environ["SLACK_TARGET"]  # 채널 ID(C…/G…) 또는 내 유저 ID(U…, 앱 DM으로 보냄)
-LOOKBACK_DAYS = int(os.environ.get("LOOKBACK_DAYS", "7"))
+LOOKBACK_DAYS = int(os.environ.get("LOOKBACK_DAYS", "14"))
 POST_WHEN_EMPTY = os.environ.get("POST_WHEN_EMPTY", "false").lower() == "true"
 
 slack = WebClient(token=SLACK_BOT_TOKEN)
@@ -71,13 +71,20 @@ def is_done(msg: dict) -> bool:
 
 def fmt(msg: dict) -> str:
     t = datetime.fromtimestamp(float(msg["ts"]), KST).strftime("%m/%d %H:%M")
-    mark = "[완료]" if is_done(msg) else "[미완료]"
-    return f"- {mark} ({t}) {msg['text'].strip()}"
+    return f"- ({t}) {msg['text'].strip()}"
 
 
-def classify(messages: list[dict]):
-    wrapups = [m for m in messages if is_wrapup(m)]
-    last_ts = float(wrapups[-1]["ts"]) if wrapups else 0.0
+def week_start() -> datetime:
+    today = datetime.now(KST).replace(hour=0, minute=0, second=0, microsecond=0)
+    return today - timedelta(days=today.weekday())
+
+
+def week_key(start: datetime) -> str:
+    year, week, _ = start.isocalendar()
+    return f"{year}-W{week:02d}"
+
+
+def classify(messages: list[dict], since: float):
     todos = [
         m for m in messages
         # 단축어로 올린 할 일은 봇 메시지라 bot_message subtype이 붙을 수 있음
@@ -85,19 +92,28 @@ def classify(messages: list[dict]):
         and m.get("subtype") in (None, "bot_message")
         and m.get("text", "").strip()
     ]
-    new = [m for m in todos if float(m["ts"]) > last_ts]
-    carried = [m for m in todos if float(m["ts"]) <= last_ts and not is_done(m)]
-    return new, carried
+    remaining = [m for m in todos if not is_done(m)]
+    done = [m for m in todos if is_done(m) and float(m["ts"]) >= since]
+    return remaining, done
 
 
-def summarize(new: list[dict], carried: list[dict]) -> str:
+def find_week_wrapup(messages: list[dict], key: str):
+    found = [
+        m for m in messages
+        if is_wrapup(m) and m["metadata"].get("event_payload", {}).get("week") == key
+    ]
+    return found[-1] if found else None
+
+
+def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str]:
+    """(한 줄 요약, 목록 본문)을 돌려준다."""
     now = datetime.now(KST).strftime("%Y-%m-%d (%a) %H:%M")
     body = (
         f"현재 시각: {now} KST\n\n"
-        f"## 지난 랩업 이후 새로 올라온 할 일\n"
-        + ("\n".join(fmt(m) for m in new) or "(없음)")
-        + "\n\n## 이전부터 남아있는 미완료 할 일\n"
-        + ("\n".join(fmt(m) for m in carried) or "(없음)")
+        "## 남은 할 일\n"
+        + ("\n".join(fmt(m) for m in remaining) or "(없음)")
+        + "\n\n## 이번 주 완료한 할 일\n"
+        + ("\n".join(fmt(m) for m in done) or "(없음)")
     )
 
     client = anthropic.Anthropic()
@@ -111,18 +127,26 @@ def summarize(new: list[dict], carried: list[dict]) -> str:
             "너는 사용자가 음성으로 던져놓은 할 일 메모를 정리해주는 비서야. "
             "메모는 받아쓰기라 오타나 구어체가 섞여 있으니 의도를 살려 간결하게 다듬어. "
             "출력은 Slack mrkdwn 형식(굵게는 *텍스트*, 목록은 •)으로, 한국어로 작성해. "
-            "구성: 1) 한 줄 요약 "
-            f"2) 미완료 할 일 목록 — 섹션 제목은 정확히 {LIST_TITLE} 로 쓰고 이모지를 붙이지 마. "
-            "비슷한 것끼리 묶되, 메모에 '긴급'·'급함'·'ASAP'처럼 급하다는 표현이 있는 항목은 "
-            "목록 맨 위에 두고 항목 앞에 🚨 를 붙여 (예: • 🚨 견적서 보내기). 그 외 항목엔 🚨 금지. "
-            "3) ✅ 완료한 것. "
+            "출력 형식:\n"
+            "첫 줄: 이번 주 상황을 한 문장으로 요약 (개수는 따로 표시되니 숫자 나열은 피하기)\n"
+            "빈 줄\n"
+            f"{LIST_TITLE} (이 제목을 정확히 그대로, 이모지 없이)\n"
+            "그 아래 남은 할 일을 내용에 맞는 카테고리로 자동 분류해. "
+            "카테고리는 할 일 내용을 보고 2~5개 정도로 직접 정하고(예: 업무, 미팅·연락, 개인, 공부), "
+            "카테고리 이름은 *굵게* 한 줄로 쓰고 그 아래 • 목록으로. "
+            "메모에 '긴급'·'급함'·'ASAP'처럼 급하다는 표현이 있는 항목은 각 카테고리 맨 위에 두고 "
+            "항목 앞에 🚨 를 붙여 (예: • 🚨 견적서 보내기). 그 외 항목엔 🚨 금지.\n"
+            "빈 줄\n"
+            "✅ *완료한 것* 아래에 이번 주 완료한 할 일 목록 (카테고리 없이).\n"
             "비어 있는 섹션은 생략하고, 없는 할 일을 지어내지 마."
         ),
         messages=[{"role": "user", "content": body}],
     )
     if response.stop_reason == "refusal":
         raise RuntimeError("Claude가 요청을 거절했습니다.")
-    return "".join(b.text for b in response.content if b.type == "text").strip()
+    text = "".join(b.text for b in response.content if b.type == "text").strip()
+    summary, _, details = text.partition("\n")
+    return summary.strip(), details.strip()
 
 
 def main():
@@ -130,23 +154,31 @@ def main():
     messages = fetch_messages(channel)
     # 레포가 공개라 로그도 공개 — ID나 이름은 찍지 않는다
     print(f"읽은 대화: {describe(channel)}, 최근 {LOOKBACK_DAYS}일 메시지 {len(messages)}건")
-    new, carried = classify(messages)
 
-    if not new and not carried:
-        if POST_WHEN_EMPTY:
-            text = f"{HEADER}\n남은 할 일이 없어요. 🎉"
-        else:
+    start = week_start()
+    key = week_key(start)
+    remaining, done = classify(messages, start.timestamp())
+    existing = find_week_wrapup(messages, key)
+
+    if not remaining and not done:
+        if not POST_WHEN_EMPTY and not existing:
             print("할 일이 없어 랩업을 건너뜁니다.")
             return
+        summary, details = "남은 할 일이 없어요. 🎉", ""
     else:
-        text = f"{HEADER}\n" + summarize(new, carried)
+        summary, details = summarize(remaining, done)
 
-    slack.chat_postMessage(
-        channel=channel,
-        text=text,
-        metadata={"event_type": WRAPUP_EVENT, "event_payload": {"count": len(new) + len(carried)}},
-    )
-    print(f"랩업 전송 완료 (새 {len(new)}건, 이월 {len(carried)}건)")
+    counts = f"이번 주 완료 *{len(done)}* / 남은 *{len(remaining)}*"
+    text = f"{HEADER}\n{summary}\n{counts}" + (f"\n\n{details}" if details else "")
+    metadata = {"event_type": WRAPUP_EVENT, "event_payload": {"week": key}}
+
+    if existing:
+        slack.chat_update(channel=channel, ts=existing["ts"], text=text, metadata=metadata)
+        action = "갱신"
+    else:
+        slack.chat_postMessage(channel=channel, text=text, metadata=metadata)
+        action = "새로 올림"
+    print(f"{key} 랩업 {action} (완료 {len(done)}건, 남은 {len(remaining)}건)")
 
 
 if __name__ == "__main__":
