@@ -167,9 +167,9 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
 def progress_bar(done: int, remaining: int, width: int = 10) -> str:
     total = done + remaining
     if not total:
-        return "⬜" * width + " 0%"
+        return "⬛" * width + " 0%"
     filled = round(width * done / total)
-    return "🟩" * filled + "⬜" * (width - filled) + f" {round(100 * done / total)}%"
+    return "⬜" * filled + "⬛" * (width - filled) + f" {round(100 * done / total)}%"
 
 
 def main():
@@ -192,7 +192,7 @@ def main():
     else:
         summary, details, done_list = summarize(remaining, done)
 
-    counts = f"{progress_bar(len(done), len(remaining))}\n이번 주 완료 *{len(done)}* / 남은 *{len(remaining)}*"
+    counts = f"{progress_bar(len(done), len(remaining))}\n이번 주 DONE *{len(done)}* / TBD *{len(remaining)}*"
     text = f"{HEADER}\n{summary}\n{counts}" + (f"\n\n{details}" if details else "")
     if done_list:
         text += "\n\n_완료한 일은 스레드에 있어요 👇_"
