@@ -1,7 +1,7 @@
 """Slack 할 일 채널을 읽어서 Claude로 이번 주 랩업을 만들고, 주마다 메시지 하나를 계속 갱신한다.
 
 - 할 일이 등록될 때(단축어 → workflow_dispatch)와 정해진 시간에 실행된다
-- 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 있으면 chat.update, 없으면 새로 올림
+- 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 새로 올리고 이전 것은 삭제, 완료 목록은 스레드 댓글
 - ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
@@ -97,16 +97,28 @@ def classify(messages: list[dict], since: float):
     return remaining, done
 
 
-def find_week_wrapup(messages: list[dict], key: str):
-    found = [
+DONE_MARKER = "===DONE==="
+
+
+def find_week_wrapups(messages: list[dict], key: str) -> list[dict]:
+    return [
         m for m in messages
         if is_wrapup(m) and m["metadata"].get("event_payload", {}).get("week") == key
     ]
-    return found[-1] if found else None
 
 
-def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str]:
-    """(한 줄 요약, 목록 본문)을 돌려준다."""
+def delete_wrapup(channel: str, msg: dict, bot_user: str):
+    # 스레드 댓글(완료 목록)을 먼저 지워야 "삭제된 메시지" 흔적이 남지 않는다
+    if msg.get("reply_count"):
+        replies = slack.conversations_replies(channel=channel, ts=msg["ts"])["messages"]
+        for r in replies:
+            if r["ts"] != msg["ts"] and r.get("user") == bot_user:
+                slack.chat_delete(channel=channel, ts=r["ts"])
+    slack.chat_delete(channel=channel, ts=msg["ts"])
+
+
+def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
+    """(한 줄 요약, 남은 할 일 목록, 완료 목록)을 돌려준다."""
     now = datetime.now(KST).strftime("%Y-%m-%d (%a) %H:%M")
     body = (
         f"현재 시각: {now} KST\n\n"
@@ -135,22 +147,25 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str]:
             "카테고리는 할 일 내용을 보고 2~5개 정도로 직접 정하고(예: 업무, 미팅·연락, 개인, 공부), "
             "카테고리 이름은 *굵게* 한 줄로 쓰고 그 아래 • 목록으로. "
             "메모에 '긴급'·'급함'·'ASAP'처럼 급하다는 표현이 있는 항목은 각 카테고리 맨 위에 두고 "
-            "항목 앞에 🚨 를 붙여 (예: • 🚨 견적서 보내기). 그 외 항목엔 🚨 금지.\n"
-            "빈 줄\n"
-            "✅ *완료한 것* 아래에 이번 주 완료한 할 일 목록 (카테고리 없이).\n"
-            "비어 있는 섹션은 생략하고, 없는 할 일을 지어내지 마."
+            "항목 앞에 🚨 를 붙여 (예: • 🚨 견적서 보내기). 그 외 항목엔 🚨 금지. "
+            "남은 할 일이 없으면 이 제목과 목록은 생략.\n"
+            f"그다음 줄에 정확히 {DONE_MARKER} 만 쓰고, 그 아래에 이번 주 완료한 할 일을 "
+            "• 목록으로 (카테고리 없이, 제목 없이). 완료한 게 없으면 마커 아래를 비워 둬.\n"
+            "없는 할 일을 지어내지 마."
         ),
         messages=[{"role": "user", "content": body}],
     )
     if response.stop_reason == "refusal":
         raise RuntimeError("Claude가 요청을 거절했습니다.")
     text = "".join(b.text for b in response.content if b.type == "text").strip()
-    summary, _, details = text.partition("\n")
-    return summary.strip(), details.strip()
+    main_part, _, done_part = text.partition(DONE_MARKER)
+    summary, _, details = main_part.strip().partition("\n")
+    return summary.strip(), details.strip(), done_part.strip()
 
 
 def main():
     channel = resolve_channel(SLACK_TARGET)
+    bot_user = slack.auth_test()["user_id"]
     messages = fetch_messages(channel)
     # 레포가 공개라 로그도 공개 — ID나 이름은 찍지 않는다
     print(f"읽은 대화: {describe(channel)}, 최근 {LOOKBACK_DAYS}일 메시지 {len(messages)}건")
@@ -158,27 +173,31 @@ def main():
     start = week_start()
     key = week_key(start)
     remaining, done = classify(messages, start.timestamp())
-    existing = find_week_wrapup(messages, key)
+    existing = find_week_wrapups(messages, key)
 
     if not remaining and not done:
         if not POST_WHEN_EMPTY and not existing:
             print("할 일이 없어 랩업을 건너뜁니다.")
             return
-        summary, details = "남은 할 일이 없어요. 🎉", ""
+        summary, details, done_list = "남은 할 일이 없어요. 🎉", "", ""
     else:
-        summary, details = summarize(remaining, done)
+        summary, details, done_list = summarize(remaining, done)
 
     counts = f"이번 주 완료 *{len(done)}* / 남은 *{len(remaining)}*"
     text = f"{HEADER}\n{summary}\n{counts}" + (f"\n\n{details}" if details else "")
+    if done_list:
+        text += "\n\n_완료한 일은 스레드에 있어요 👇_"
     metadata = {"event_type": WRAPUP_EVENT, "event_payload": {"week": key}}
 
-    if existing:
-        slack.chat_update(channel=channel, ts=existing["ts"], text=text, metadata=metadata)
-        action = "갱신"
-    else:
-        slack.chat_postMessage(channel=channel, text=text, metadata=metadata)
-        action = "새로 올림"
-    print(f"{key} 랩업 {action} (완료 {len(done)}건, 남은 {len(remaining)}건)")
+    # 새로 올린 뒤 지워야 실패해도 랩업이 사라지지 않는다
+    posted = slack.chat_postMessage(channel=channel, text=text, metadata=metadata)
+    if done_list:
+        slack.chat_postMessage(
+            channel=channel, thread_ts=posted["ts"], text=f"✅ *완료한 일*\n{done_list}"
+        )
+    for msg in existing:
+        delete_wrapup(channel, msg, bot_user)
+    print(f"{key} 랩업 올림, 이전 {len(existing)}개 삭제 (완료 {len(done)}건, 남은 {len(remaining)}건)")
 
 
 if __name__ == "__main__":
