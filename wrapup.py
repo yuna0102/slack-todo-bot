@@ -80,7 +80,10 @@ def classify(messages: list[dict]):
     last_ts = float(wrapups[-1]["ts"]) if wrapups else 0.0
     todos = [
         m for m in messages
-        if not is_wrapup(m) and not m.get("subtype") and m.get("text", "").strip()
+        # 단축어로 올린 할 일은 봇 메시지라 bot_message subtype이 붙을 수 있음
+        if not is_wrapup(m)
+        and m.get("subtype") in (None, "bot_message")
+        and m.get("text", "").strip()
     ]
     new = [m for m in todos if float(m["ts"]) > last_ts]
     carried = [m for m in todos if float(m["ts"]) <= last_ts and not is_done(m)]
