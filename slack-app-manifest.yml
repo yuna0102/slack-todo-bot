@@ -3,7 +3,7 @@ display_information:
   description: 음성으로 받은 할 일을 모으고 정해진 시간에 랩업해줍니다
 features:
   bot_user:
-    display_name: 할일봇
+    display_name: todo-bot
     always_online: true
   app_home:
     messages_tab_enabled: true

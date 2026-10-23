@@ -20,10 +20,11 @@
 ## 1. Slack 앱 만들기 (5분)
 
 1. https://api.slack.com/apps → **Create New App** → **From a manifest** → 워크스페이스 선택
-2. `slack-app-manifest.yml` 내용을 붙여넣고 생성
+2. 입력 창 위 **YAML** 탭을 고르고 `slack-app-manifest.yml` 내용을 붙여넣고 생성
+   > 봇 이름(`display_name`)은 영어 소문자·숫자·`-`·`_`·`.`만 됩니다. 한글은 앱 이름(`name`)에만 쓰세요.
 3. **Install to Workspace** → 설치 후 **OAuth & Permissions**에서 `xoxb-…` **Bot User OAuth Token** 복사
 4. 어디로 받을지 정하기 (아래 값이 `SLACK_TARGET`):
-   - **채널**: 예) `#todo` 비공개 채널을 만들고 채널에서 `/invite @할일봇`. 채널 이름 클릭 → 맨 아래 **채널 ID**(`C…`) 복사
+   - **채널**: 예) `#todo` 비공개 채널을 만들고 채널에서 `/invite @todo-bot`. 채널 이름 클릭 → 맨 아래 **채널 ID**(`C…`) 복사
    - **나만 보는 DM**: Slack 내 프로필 → ⋮ → **멤버 ID 복사**(`U…`). 앱(할일봇)과의 DM으로 올라갑니다.
      > Slack의 "나에게 보내기" DM 자체는 봇이 읽을 수 없어서, 대신 봇과의 1:1 DM을 씁니다. 나만 보는 건 똑같아요.
 
