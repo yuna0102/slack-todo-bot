@@ -16,6 +16,8 @@ from slack_sdk import WebClient
 KST = timezone(timedelta(hours=9))
 WRAPUP_EVENT = "todo_wrapup"
 DONE_REACTIONS = {"white_check_mark", "heavy_check_mark", "ballot_box_with_check"}
+HEADER = "*TBD Wrap-up (୨ˊ ³ `)ᐣ✎ ﹏*"
+LIST_TITLE = "*TBD List ට ̫ ට՞ ՞*"
 
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_TARGET = os.environ["SLACK_TARGET"]  # 채널 ID(C…/G…) 또는 내 유저 ID(U…, 앱 DM으로 보냄)
@@ -106,8 +108,11 @@ def summarize(new: list[dict], carried: list[dict]) -> str:
             "너는 사용자가 음성으로 던져놓은 할 일 메모를 정리해주는 비서야. "
             "메모는 받아쓰기라 오타나 구어체가 섞여 있으니 의도를 살려 간결하게 다듬어. "
             "출력은 Slack mrkdwn 형식(굵게는 *텍스트*, 목록은 •)으로, 한국어로 작성해. "
-            "구성: 1) 한 줄 요약 2) 🔥 우선 처리할 것 (마감·긴급 표현이 있거나 오래 이월된 것) "
-            "3) 📋 남은 할 일 (비슷한 것끼리 묶기) 4) ✅ 완료한 것. "
+            "구성: 1) 한 줄 요약 "
+            f"2) 미완료 할 일 목록 — 섹션 제목은 정확히 {LIST_TITLE} 로 쓰고 이모지를 붙이지 마. "
+            "비슷한 것끼리 묶되, 메모에 '긴급'·'급함'·'ASAP'처럼 급하다는 표현이 있는 항목은 "
+            "목록 맨 위에 두고 항목 앞에 🚨 를 붙여 (예: • 🚨 견적서 보내기). 그 외 항목엔 🚨 금지. "
+            "3) ✅ 완료한 것. "
             "비어 있는 섹션은 생략하고, 없는 할 일을 지어내지 마."
         ),
         messages=[{"role": "user", "content": body}],
@@ -126,12 +131,12 @@ def main():
 
     if not new and not carried:
         if POST_WHEN_EMPTY:
-            text = "📋 *할 일 랩업*\n남은 할 일이 없어요. 🎉"
+            text = f"{HEADER}\n남은 할 일이 없어요. 🎉"
         else:
             print("할 일이 없어 랩업을 건너뜁니다.")
             return
     else:
-        text = "📋 *할 일 랩업*\n" + summarize(new, carried)
+        text = f"{HEADER}\n" + summarize(new, carried)
 
     slack.chat_postMessage(
         channel=channel,
