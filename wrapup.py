@@ -37,7 +37,8 @@ def resolve_channel(target: str) -> str:
 
 def describe(channel: str) -> str:
     # conversations.info는 추가 권한이 필요해서 ID 접두어로만 구분
-    return "앱 DM" if channel.startswith("D") else "채널"
+    kind = "앱 DM" if channel.startswith("D") else "채널"
+    return f"{kind}(ID 끝자리 …{channel[-4:]})"
 
 
 def fetch_messages(channel: str) -> list[dict]:
