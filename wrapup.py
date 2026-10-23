@@ -16,7 +16,7 @@ from slack_sdk import WebClient
 KST = timezone(timedelta(hours=9))
 WRAPUP_EVENT = "todo_wrapup"
 DONE_REACTIONS = {"white_check_mark", "heavy_check_mark", "ballot_box_with_check"}
-HEADER = "*TBD Wrap-up (୨ˊ ³ `)ᐣ✎ ﹏*"
+HEADER = "*TBD Wrap-up* ५✍🏼"
 LIST_TITLE = "*TBD List ට ̫ ට՞ ՞*"
 
 SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
