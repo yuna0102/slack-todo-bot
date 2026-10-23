@@ -27,8 +27,17 @@ slack = WebClient(token=SLACK_BOT_TOKEN)
 
 def resolve_channel(target: str) -> str:
     if target.startswith("U"):
+        if target == slack.auth_test()["user_id"]:
+            raise ValueError(
+                "SLACK_TARGET이 봇 자신의 ID입니다. todo-bot이 아니라 내 프로필에서 멤버 ID를 복사하세요."
+            )
         return slack.conversations_open(users=target)["channel"]["id"]
     return target
+
+
+def describe(channel: str) -> str:
+    # conversations.info는 추가 권한이 필요해서 ID 접두어로만 구분
+    return "앱 DM" if channel.startswith("D") else "채널"
 
 
 def fetch_messages(channel: str) -> list[dict]:
@@ -109,7 +118,10 @@ def summarize(new: list[dict], carried: list[dict]) -> str:
 
 def main():
     channel = resolve_channel(SLACK_TARGET)
-    new, carried = classify(fetch_messages(channel))
+    messages = fetch_messages(channel)
+    # 레포가 공개라 로그도 공개 — ID나 이름은 찍지 않는다
+    print(f"읽은 대화: {describe(channel)}, 최근 {LOOKBACK_DAYS}일 메시지 {len(messages)}건")
+    new, carried = classify(messages)
 
     if not new and not carried:
         if POST_WHEN_EMPTY:
