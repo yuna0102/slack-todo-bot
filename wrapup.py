@@ -195,7 +195,7 @@ def main():
     counts = f"{progress_bar(len(done), len(remaining))}\n이번 주 DONE *{len(done)}* / TBD *{len(remaining)}*"
     text = f"{HEADER}\n{summary}\n{counts}" + (f"\n\n{details}" if details else "")
     if done_list:
-        text += "\n\n_완료한 일은 스레드에 있어요 👇_"
+        text += "\n\n_완료한 일은 스레드에 있어요_ ( •̀ •́ゞ)"
     metadata = {"event_type": WRAPUP_EVENT, "event_payload": {"week": key}}
 
     # 새로 올린 뒤 지워야 실패해도 랩업이 사라지지 않는다
