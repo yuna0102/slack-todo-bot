@@ -167,9 +167,9 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
 def progress_bar(done: int, remaining: int, width: int = 10) -> str:
     total = done + remaining
     if not total:
-        return "⬛" * width + " 0%"
+        return "⬜" * width + " 0%"
     filled = round(width * done / total)
-    return "⬜" * filled + "⬛" * (width - filled) + f" {round(100 * done / total)}%"
+    return "⬛" * filled + "⬜" * (width - filled) + f" {round(100 * done / total)}%"
 
 
 def main():
