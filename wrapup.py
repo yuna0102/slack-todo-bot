@@ -42,7 +42,7 @@ def describe(channel: str) -> str:
 
 
 def fetch_messages(channel: str) -> list[dict]:
-    oldest = time.time() - LOOKBACK_DAYS * 86400
+    oldest = int(time.time() - LOOKBACK_DAYS * 86400)
     messages, cursor = [], None
     while True:
         resp = slack.conversations_history(
