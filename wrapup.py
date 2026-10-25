@@ -202,13 +202,20 @@ def main():
     remaining, done = classify(messages, start.timestamp())
     existing = find_week_wrapups(messages, key)
 
+    linear_error = None
     if LINEAR_ENABLED:
-        # 랩업이 실패해도 Linear는 맞춰두도록 먼저 실행 (레포 공개라 이슈 번호도 로그에 안 찍음)
-        print(linear_sync.sync(slack, channel, todo_messages(messages), is_done, is_cancelled))
+        # Linear가 실패해도 랩업은 올리고, 실행은 마지막에 실패로 표시 (레포 공개라 이슈 번호는 안 찍음)
+        try:
+            print(linear_sync.sync(slack, channel, todo_messages(messages), is_done, is_cancelled))
+        except Exception as e:
+            linear_error = e
+            print(f"Linear 동기화 실패: {e}", file=sys.stderr)
 
     if not remaining and not done:
         if not POST_WHEN_EMPTY and not existing:
             print("할 일이 없어 랩업을 건너뜁니다.")
+            if linear_error:
+                raise linear_error
             return
         summary, details, done_list = "남은 할 일이 없어요. 🎉", "", ""
     else:
@@ -229,6 +236,8 @@ def main():
     for msg in existing:
         delete_wrapup(channel, msg, bot_user)
     print(f"{key} 랩업 올림, 이전 {len(existing)}개 삭제 (완료 {len(done)}건, 남은 {len(remaining)}건)")
+    if linear_error:
+        raise linear_error
 
 
 if __name__ == "__main__":

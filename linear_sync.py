@@ -8,6 +8,7 @@
 import json
 import os
 import re
+import urllib.error
 import urllib.request
 
 import anthropic
@@ -24,8 +25,14 @@ def gql(query: str, variables: dict | None = None) -> dict:
         # 개인 API 키는 Bearer 없이 그대로 넣는다
         headers={"Authorization": os.environ["LINEAR_API_KEY"], "Content-Type": "application/json"},
     )
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        body = json.load(resp)
+    try:
+        with urllib.request.urlopen(req, timeout=30) as resp:
+            body = json.load(resp)
+    except urllib.error.HTTPError as e:
+        # 쿼리 오류도 400으로 오니 본문의 메시지를 꺼낸다
+        body = json.loads(e.read() or b"{}")
+        if not body.get("errors"):
+            raise
     if body.get("errors"):
         raise RuntimeError(f"Linear API 오류: {body['errors'][0].get('message')}")
     return body["data"]
