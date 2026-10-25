@@ -39,20 +39,21 @@ def gql(query: str, variables: dict | None = None) -> dict:
 
 
 def load_team(key: str) -> dict:
-    data = gql(
-        """query($key: String!) {
-          teams(filter: {key: {eq: $key}}) { nodes {
-            id
-            states { nodes { id type position } }
-            labels(first: 250) { nodes { id name } }
-          } }
-        }""",
+    # 한 쿼리에 중첩 목록을 넣으면 "Query too complex"가 나서 나눠서 조회
+    nodes = gql(
+        """query($key: String!) { teams(filter: {key: {eq: $key}}) { nodes { id } } }""",
         {"key": key},
-    )
-    nodes = data["teams"]["nodes"]
+    )["teams"]["nodes"]
     if not nodes:
         raise RuntimeError("LINEAR_TEAM_KEY에 해당하는 팀이 없습니다.")
-    team = nodes[0]
+    team = gql(
+        """query($id: String!) { team(id: $id) {
+          id
+          states { nodes { id type position } }
+          labels(first: 100) { nodes { id name } }
+        } }""",
+        {"id": nodes[0]["id"]},
+    )["team"]
 
     def first_state(kind: str) -> str:
         states = sorted(
@@ -163,7 +164,7 @@ def sync(slack: WebClient, channel: str, todos: list[dict], is_done, is_cancelle
     if linked:
         data = gql(
             """query($ids: [ID!]) {
-              issues(filter: {id: {in: $ids}}, first: 250) { nodes { id state { type } } }
+              issues(filter: {id: {in: $ids}}, first: 100) { nodes { id state { type } } }
             }""",
             {"ids": list(linked.values())},
         )
