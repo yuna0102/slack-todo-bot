@@ -2,6 +2,7 @@
 
 - 할 일이 등록될 때(단축어 → workflow_dispatch)와 정해진 시간에 실행된다
 - 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 새로 올리고 이전 것은 삭제, 완료 목록은 스레드 댓글
+- LINEAR_API_KEY가 있으면 할 일을 Linear 이슈로도 동기화 (linear_sync.py)
 - ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
@@ -12,6 +13,8 @@ from datetime import datetime, timedelta, timezone
 
 import anthropic
 from slack_sdk import WebClient
+
+import linear_sync
 
 KST = timezone(timedelta(hours=9))
 WRAPUP_EVENT = "todo_wrapup"
@@ -24,6 +27,7 @@ SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_TARGET = os.environ["SLACK_TARGET"]  # 채널 ID(C…/G…) 또는 내 유저 ID(U…, 앱 DM으로 보냄)
 LOOKBACK_DAYS = int(os.environ.get("LOOKBACK_DAYS", "14"))
 POST_WHEN_EMPTY = os.environ.get("POST_WHEN_EMPTY", "false").lower() == "true"
+LINEAR_ENABLED = bool(os.environ.get("LINEAR_API_KEY") and os.environ.get("LINEAR_TEAM_KEY"))
 
 slack = WebClient(token=SLACK_BOT_TOKEN)
 
@@ -93,16 +97,19 @@ def week_key(start: datetime) -> str:
     return f"{year}-W{week:02d}"
 
 
-def classify(messages: list[dict], since: float):
-    todos = [
+def todo_messages(messages: list[dict]) -> list[dict]:
+    return [
         m for m in messages
         # 단축어로 올린 할 일은 봇 메시지라 bot_message subtype이 붙을 수 있음
         if not is_wrapup(m)
         and m.get("subtype") in (None, "bot_message")
         and m.get("text", "").strip()
-        # ❌가 달리면 완료든 아니든 목록에서 뺀다
-        and not is_cancelled(m)
     ]
+
+
+def classify(messages: list[dict], since: float):
+    # ❌가 달리면 완료든 아니든 목록에서 뺀다
+    todos = [m for m in todo_messages(messages) if not is_cancelled(m)]
     remaining = [m for m in todos if not is_done(m)]
     done = [m for m in todos if is_done(m) and float(m["ts"]) >= since]
     return remaining, done
@@ -194,6 +201,10 @@ def main():
     key = week_key(start)
     remaining, done = classify(messages, start.timestamp())
     existing = find_week_wrapups(messages, key)
+
+    if LINEAR_ENABLED:
+        # 랩업이 실패해도 Linear는 맞춰두도록 먼저 실행 (레포 공개라 이슈 번호도 로그에 안 찍음)
+        print(linear_sync.sync(slack, channel, todo_messages(messages), is_done, is_cancelled))
 
     if not remaining and not done:
         if not POST_WHEN_EMPTY and not existing:

@@ -83,6 +83,20 @@
 
 ✅·❌ 리액션만 단 경우엔 다음 할 일 등록 때나 정해진 시간 실행 때 반영됩니다.
 
+## 5. Linear 연동 (선택)
+
+할 일을 Linear 이슈로도 만들고, 상태는 Slack 리액션 기준으로 맞춥니다. Linear 쪽 Slack 연동은 필요 없습니다.
+
+1. Linear → Settings → Account → Security & access → **Personal API keys**에서 키 발급
+2. 저장소 Secrets에 등록
+   - `LINEAR_API_KEY` = 발급한 키
+   - `LINEAR_TEAM_KEY` = 팀 Identifier (이슈 번호 `ABC-1`의 `ABC`)
+
+동작:
+- 남은 할 일 → 이슈 생성 (Claude가 제목을 다듬고 카테고리를 라벨로, 긴급 메모는 우선순위 Urgent), 할 일 스레드에 이슈 링크 댓글
+- ✅ → Done, ❌ → Canceled, 리액션을 떼면 다시 Todo
+- Linear에서 In Progress 등으로 바꾼 상태는 ✅/❌ 전까지 건드리지 않습니다
+
 ## 옵션 (워크플로 `env`에 추가)
 
 - `LOOKBACK_DAYS` (기본 `14`): 미완료 할 일을 며칠 전까지 이월할지
