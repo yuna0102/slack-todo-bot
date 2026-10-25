@@ -2,7 +2,7 @@
 
 - 할 일이 등록될 때(단축어 → workflow_dispatch)와 정해진 시간에 실행된다
 - 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 새로 올리고 이전 것은 삭제, 완료 목록은 스레드 댓글
-- ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
+- ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
 import os
@@ -16,6 +16,7 @@ from slack_sdk import WebClient
 KST = timezone(timedelta(hours=9))
 WRAPUP_EVENT = "todo_wrapup"
 DONE_REACTIONS = {"white_check_mark", "heavy_check_mark", "ballot_box_with_check"}
+CANCEL_REACTIONS = {"x", "negative_squared_cross_mark"}
 HEADER = "*TBD Wrap-up* ५✍🏼"
 LIST_TITLE = "*TBD List ට ̫ ට՞ ՞*"
 
@@ -65,8 +66,16 @@ def is_wrapup(msg: dict) -> bool:
     return msg.get("metadata", {}).get("event_type") == WRAPUP_EVENT
 
 
+def has_reaction(msg: dict, names: set[str]) -> bool:
+    return any(r["name"] in names for r in msg.get("reactions", []))
+
+
 def is_done(msg: dict) -> bool:
-    return any(r["name"] in DONE_REACTIONS for r in msg.get("reactions", []))
+    return has_reaction(msg, DONE_REACTIONS)
+
+
+def is_cancelled(msg: dict) -> bool:
+    return has_reaction(msg, CANCEL_REACTIONS)
 
 
 def fmt(msg: dict) -> str:
@@ -91,6 +100,8 @@ def classify(messages: list[dict], since: float):
         if not is_wrapup(m)
         and m.get("subtype") in (None, "bot_message")
         and m.get("text", "").strip()
+        # ❌가 달리면 완료든 아니든 목록에서 뺀다
+        and not is_cancelled(m)
     ]
     remaining = [m for m in todos if not is_done(m)]
     done = [m for m in todos if is_done(m) and float(m["ts"]) >= since]
