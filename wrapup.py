@@ -87,7 +87,7 @@ def is_cancelled(msg: dict) -> bool:
 def fmt(msg: dict) -> str:
     t = datetime.fromtimestamp(float(msg["ts"]), KST).strftime("%m/%d %H:%M")
     text, due_date, route = due.parse(msg)
-    tags = "[팀] " if "team" in route else ""
+    tags = "[회사] " if "team" in route else ""
     if due_date:
         overdue = " 지남" if due_date < datetime.now(KST).date() else ""
         tags += f"[마감 {due_date:%m/%d}{overdue}] "
@@ -201,7 +201,7 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
             "맨 앞에 🚨 를 붙여 (예: • 🚨 [업무] 견적서 보내기). 그 외 항목엔 🚨 금지. "
             "메모에 [마감 MM/DD]가 붙은 항목은 작업명 뒤에 ` · 📅 MM/DD`를 붙이고, "
             "[마감 MM/DD 지남]이면 ` · ⏰ MM/DD 지남`을 붙여. 마감이 없는 항목엔 날짜를 붙이지 마. "
-            "메모에 [팀]이 붙은 항목은 작업명 뒤(날짜 앞)에 ` · 👥`를 붙여.\n"
+            "메모에 [회사]가 붙은 항목은 작업명 뒤(날짜 앞)에 ` · 🏢`를 붙여.\n"
             "남은 할 일이 없으면 이 제목과 목록은 생략.\n"
             f"그다음 줄에 정확히 {DONE_MARKER} 만 쓰고, 그 아래에 이번 주 완료한 할 일을 "
             "• 목록으로 (카테고리 없이, 제목 없이). 완료한 게 없으면 마커 아래를 비워 둬.\n"

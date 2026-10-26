@@ -1,7 +1,7 @@
 """Slack 할 일을 Linear 이슈로 동기화한다. 상태는 Slack이 기준.
 
-- 워크스페이스: 개인(LINEAR_API_KEY / LINEAR_TEAM_KEY), 팀(LINEAR_TEAM_WS_API_KEY / LINEAR_TEAM_WS_TEAM_KEY)
-  말머리 '팀' → 팀만, '같이' → 둘 다, 없으면 개인만 (due.py)
+- 워크스페이스: 개인(LINEAR_API_KEY / LINEAR_TEAM_KEY), 회사(LINEAR_TEAM_WS_API_KEY / LINEAR_TEAM_WS_TEAM_KEY)
+  말머리 '회사' → 회사만, '같이' → 둘 다, 없으면 개인만 (due.py)
 - 아직 이슈가 없는 남은 할 일 → 이슈 생성 + 할 일 스레드에 이슈 링크 댓글(메타데이터로 이슈 ID 기록)
 - 할 일 스레드 댓글로 수정하면 이슈 제목·설명도 갱신, 말머리를 바꿔 보낼 곳을 바꾸면 빠진 쪽 이슈는 Canceled
 - ✅ → Done, ❌ → Canceled, 리액션을 떼면 완료/취소된 이슈를 다시 Todo로
@@ -24,7 +24,7 @@ URGENT = re.compile(r"긴급|급함|급해|asap", re.IGNORECASE)
 WORKSPACES = [
     # (이름, 링크 댓글 표시, API 키 환경변수, 팀 키 환경변수)
     ("personal", "Linear", "LINEAR_API_KEY", "LINEAR_TEAM_KEY"),
-    ("team", "팀 Linear", "LINEAR_TEAM_WS_API_KEY", "LINEAR_TEAM_WS_TEAM_KEY"),
+    ("team", "회사 Linear", "LINEAR_TEAM_WS_API_KEY", "LINEAR_TEAM_WS_TEAM_KEY"),
 ]
 
 
@@ -102,7 +102,7 @@ def find_link(replies: list[dict], ws: str) -> dict | None:
     """할 일 스레드에서 봇이 단 그 워크스페이스의 이슈 링크 댓글을 찾는다."""
     for r in replies:
         meta = r.get("metadata", {})
-        # 팀 연동 전에 단 링크 댓글엔 ws가 없다 → 개인
+        # 회사 연동 전에 단 링크 댓글엔 ws가 없다 → 개인
         if meta.get("event_type") == LINK_EVENT and meta["event_payload"].get("ws", "personal") == ws:
             return r
     return None
@@ -110,7 +110,7 @@ def find_link(replies: list[dict], ws: str) -> dict | None:
 
 def draft_issues(todos: list[dict]) -> dict[str, dict]:
     """받아쓰기 메모를 이슈 제목/카테고리로 다듬는다. {ts: {title, category}}"""
-    # 말머리('팀'·'오늘' 등)는 따로 처리하니 제목엔 넣지 않는다
+    # 말머리('회사'·'오늘' 등)는 따로 처리하니 제목엔 넣지 않는다
     items = "\n".join(f"{m['ts']}\t{due.parse(m)[0]}" for m in todos)
     response = anthropic.Anthropic().beta.messages.create(
         model="claude-opus-5-5",
@@ -178,7 +178,7 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
     names = {w[0] for w in workspaces}
     wanted = {m["ts"]: due.parse(m)[2] for m in todos}
     if any(r - names for r in wanted.values()):
-        print("팀 Linear 키가 없어 '팀'·'같이' 할 일 일부를 건너뜁니다.")
+        print("회사 Linear 키가 없어 '회사'·'같이' 할 일 일부를 건너뜁니다.")
 
     link_msgs = {
         ws: {m["ts"]: r for m in todos if (r := find_link(threads.get(m["ts"], []), ws))}
