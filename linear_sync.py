@@ -5,7 +5,7 @@
 - 아직 이슈가 없는 남은 할 일 → 이슈 생성 + 할 일 스레드에 이슈 링크 댓글(메타데이터로 이슈 ID 기록)
 - 할 일 스레드 댓글로 수정하면 이슈 제목·설명도 갱신, 말머리를 바꿔 보낼 곳을 바꾸면 빠진 쪽 이슈는 Canceled
 - 이슈 담당자는 API 키 주인(나), 비어 있으면 채워 넣음
-- ✅ → Done, ❌ → Canceled, 리액션을 떼면 완료/취소된 이슈를 다시 Todo로
+- ⏳ → In Progress, ✅ → Done, ❌ → Canceled, ✅·❌를 떼면 완료/취소된 이슈를 다시 Todo로
 - 키가 없는 워크스페이스는 건너뛴다
 """
 
@@ -84,7 +84,7 @@ def load_team(api_key: str, key: str) -> dict:
         "api_key": api_key,
         "viewer": viewer,
         "id": team["id"],
-        "states": {k: first_state(k) for k in ("unstarted", "completed", "canceled")},
+        "states": {k: first_state(k) for k in ("unstarted", "started", "completed", "canceled")},
         "labels": {l["name"]: l["id"] for l in team["labels"]["nodes"]},
     }
 
@@ -181,7 +181,7 @@ def link_payload(ws: str, issue_id: str, msg: dict) -> dict:
     }
 
 
-def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_done, is_cancelled) -> str:
+def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_done, is_cancelled, is_in_progress) -> str:
     """동기화하고 로그용 한 줄 요약을 돌려준다. todos의 text는 스레드 수정본이 반영된 상태."""
     workspaces = configured()
     names = {w[0] for w in workspaces}
@@ -274,6 +274,8 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
                 want = "canceled"  # ❌ 또는 말머리를 바꿔 이 워크스페이스에서 뺀 경우
             elif is_done(m):
                 want = "completed"
+            elif is_in_progress(m):
+                want = "started"  # ⏳ — 떼도 되돌리지 않음 (Linear에서 직접 바꾼 진행 중과 구분할 수 없어서)
             elif current[iid] in ("completed", "canceled"):
                 want = "unstarted"  # 리액션을 뗐으면 다시 열기
             else:

@@ -5,6 +5,8 @@ on:
     # GitHub cron은 UTC 기준 → KST = UTC+9
     # 평일 09:00, 18:00 KST
     - cron: "0 0,9 * * 1-5"
+    # 평일 09:00~19:45 KST 15분마다 — 스레드 수정·리액션 반영용, 바뀐 게 없으면 바로 끝남
+    - cron: "*/15 0-10 * * 1-5"
   workflow_dispatch: # Actions 탭 수동 실행 + 아이폰 단축어가 할 일 등록 직후 호출
 
 # 할 일을 연달아 등록해도 실행이 겹치지 않게 한 번에 하나씩, 대기는 최신 1개만 유지
@@ -24,6 +26,7 @@ jobs:
       - run: pip install -r requirements.txt
       - run: python wrapup.py
         env:
+          FORCE: ${{ github.event.schedule == '0 0,9 * * 1-5' }}
           SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
           SLACK_TARGET: ${{ secrets.SLACK_TARGET }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}

@@ -4,9 +4,11 @@
 - 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 새로 올리고 이전 것은 삭제, 완료 목록은 스레드 댓글
 - LINEAR_API_KEY가 있으면 할 일을 Linear 이슈로도 동기화 (linear_sync.py)
 - 할 일 스레드에 댓글을 달면 마지막 댓글이 그 할 일의 수정본
-- ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
+- ⏳ = 진행 중(Linear In Progress), ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
+import hashlib
+import json
 import os
 import sys
 import time
@@ -22,6 +24,7 @@ KST = timezone(timedelta(hours=9))
 WRAPUP_EVENT = "todo_wrapup"
 DONE_REACTIONS = {"white_check_mark", "heavy_check_mark", "ballot_box_with_check"}
 CANCEL_REACTIONS = {"x", "negative_squared_cross_mark"}
+IN_PROGRESS_REACTIONS = {"hourglass_flowing_sand", "hourglass"}
 HEADER = "*TBD Wrap-up* ५✍🏼"
 LIST_TITLE = "*TBD List ට ̫ ට՞ ՞*"
 
@@ -30,6 +33,8 @@ SLACK_TARGET = os.environ["SLACK_TARGET"]  # 채널 ID(C…/G…) 또는 내 유
 LOOKBACK_DAYS = int(os.environ.get("LOOKBACK_DAYS", "14"))
 POST_WHEN_EMPTY = os.environ.get("POST_WHEN_EMPTY", "false").lower() == "true"
 LINEAR_ENABLED = bool(linear_sync.configured())
+# 정해진 시간(09:00·18:00) 실행은 바뀐 게 없어도 채널 맨 아래로 다시 올린다
+FORCE = os.environ.get("FORCE", "false").lower() == "true"
 
 slack = WebClient(token=SLACK_BOT_TOKEN)
 
@@ -84,10 +89,26 @@ def is_cancelled(msg: dict) -> bool:
     return has_reaction(msg, CANCEL_REACTIONS)
 
 
+def is_in_progress(msg: dict) -> bool:
+    return has_reaction(msg, IN_PROGRESS_REACTIONS)
+
+
+def fingerprint(key: str, todos: list[dict]) -> str:
+    """랩업에 영향을 주는 상태(할 일 내용·수정본·리액션, 주, 날짜)의 지문. 같으면 다시 올릴 필요 없음."""
+    state = [
+        key,
+        datetime.now(KST).date().isoformat(),  # 날짜가 바뀌면 '⏰ 지남' 표시가 달라진다
+        [(m["ts"], m["text"], sorted(r["name"] for r in m.get("reactions", []))) for m in todos],
+    ]
+    return hashlib.sha256(json.dumps(state, ensure_ascii=False).encode()).hexdigest()[:16]
+
+
 def fmt(msg: dict) -> str:
     t = datetime.fromtimestamp(float(msg["ts"]), KST).strftime("%m/%d %H:%M")
     text, due_date, route = due.parse(msg)
     tags = "[회사] " if "team" in route else "[개인용] "
+    if is_in_progress(msg):
+        tags += "[진행 중] "
     if due_date:
         overdue = " 지남" if due_date < datetime.now(KST).date() else ""
         tags += f"[마감 {due_date:%m/%d}{overdue}] "
@@ -201,6 +222,7 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
             "맨 앞에 🚨 를 붙여 (예: • 🚨 [업무] 견적서 보내기). 그 외 항목엔 🚨 금지. "
             "메모에 [마감 MM/DD]가 붙은 항목은 작업명 뒤에 ` · 📅 MM/DD`를 붙이고, "
             "[마감 MM/DD 지남]이면 ` · ⏰ MM/DD 지남`을 붙여. 마감이 없는 항목엔 날짜를 붙이지 마. "
+            "[진행 중]이 붙은 항목은 작업명 바로 뒤(날짜 앞)에 ` · ⏳`를 붙여. "
             "메모의 [회사]/[개인용] 표시는 보낼 곳이야(카테고리 아님). 각 항목 맨 앞(🚨가 있으면 🚨 바로 뒤)에 "
             "[회사]면 🏢, [개인용]이면 🛁 를 붙여 (예: • 🏢 [업무] QA 요청, • 🛁 [개인] 장보기, "
             "• 🚨 🏢 [업무] 견적서 보내기).\n"
@@ -243,11 +265,16 @@ def main():
     remaining, done = classify(messages, start.timestamp())
     existing = find_week_wrapups(messages, key)
 
+    fp = fingerprint(key, todos)
+    if not FORCE and existing and existing[-1]["metadata"]["event_payload"].get("fp") == fp:
+        print("바뀐 게 없어 건너뜁니다.")
+        return
+
     linear_error = None
     if LINEAR_ENABLED:
         # Linear가 실패해도 랩업은 올리고, 실행은 마지막에 실패로 표시 (레포 공개라 이슈 번호는 안 찍음)
         try:
-            print(linear_sync.sync(slack, channel, todos, threads, is_done, is_cancelled))
+            print(linear_sync.sync(slack, channel, todos, threads, is_done, is_cancelled, is_in_progress))
         except Exception as e:
             linear_error = e
             print(f"Linear 동기화 실패: {e}", file=sys.stderr)
@@ -266,7 +293,8 @@ def main():
     text = f"{HEADER}\n{summary}\n{counts}" + (f"\n\n{details}" if details else "")
     if done_list:
         text += "\n\n_완료한 일은 스레드에 있어요_ ( •̀ •́ゞ)"
-    metadata = {"event_type": WRAPUP_EVENT, "event_payload": {"week": key}}
+    # Linear가 실패했으면 지문을 비워 다음 실행에서 다시 시도하게 한다
+    metadata = {"event_type": WRAPUP_EVENT, "event_payload": {"week": key, "fp": "" if linear_error else fp}}
 
     # 새로 올린 뒤 지워야 실패해도 랩업이 사라지지 않는다
     posted = slack.chat_postMessage(channel=channel, text=text, metadata=metadata)
