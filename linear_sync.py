@@ -1,5 +1,6 @@
 """Slack 할 일을 Linear 이슈로 동기화한다. 상태는 Slack이 기준.
 
+- 할 일 스레드 댓글로 수정하면 이슈 제목·설명도 갱신
 - 아직 이슈가 없는 남은 할 일 → 이슈 생성 + 할 일 스레드에 이슈 링크 댓글(메타데이터로 이슈 ID 기록)
 - ✅ → Done, ❌ → Canceled, 리액션을 떼면 완료/취소된 이슈를 다시 Todo로
 - LINEAR_API_KEY / LINEAR_TEAM_KEY가 없으면 아무것도 하지 않는다
@@ -80,17 +81,11 @@ def label_id(team: dict, name: str) -> str:
     return team["labels"][name]
 
 
-def find_link(slack: WebClient, channel: str, msg: dict) -> str | None:
-    """할 일 스레드에 달린 이슈 링크 댓글에서 이슈 ID를 찾는다."""
-    if not msg.get("reply_count"):
-        return None
-    replies = slack.conversations_replies(
-        channel=channel, ts=msg["ts"], include_all_metadata=True
-    )["messages"]
+def find_link(replies: list[dict]) -> dict | None:
+    """할 일 스레드에서 봇이 단 이슈 링크 댓글을 찾는다."""
     for r in replies:
-        meta = r.get("metadata", {})
-        if meta.get("event_type") == LINK_EVENT:
-            return meta["event_payload"]["issue_id"]
+        if r.get("metadata", {}).get("event_type") == LINK_EVENT:
+            return r
     return None
 
 
@@ -120,17 +115,21 @@ def draft_issues(todos: list[dict]) -> dict[str, dict]:
         return {}  # 다듬기에 실패하면 원문 그대로 이슈를 만든다
 
 
-def create_issue(team: dict, msg: dict, draft: dict | None) -> dict:
+def issue_fields(team: dict, msg: dict, draft: dict | None) -> dict:
     raw = msg["text"].strip()
     title = (draft or {}).get("title") or raw
-    issue = {
-        "teamId": team["id"],
+    fields = {
         "title": title[:200],
         "description": f"Slack에서 음성으로 등록한 할 일\n\n> {raw}",
         "priority": 1 if URGENT.search(raw) else 0,
     }
     if draft and draft.get("category"):
-        issue["labelIds"] = [label_id(team, draft["category"])]
+        fields["labelIds"] = [label_id(team, draft["category"])]
+    return fields
+
+
+def create_issue(team: dict, msg: dict, draft: dict | None) -> dict:
+    issue = {"teamId": team["id"], **issue_fields(team, msg, draft)}
     data = gql(
         """mutation($input: IssueCreateInput!) {
           issueCreate(input: $input) { issue { id identifier url } }
@@ -140,14 +139,26 @@ def create_issue(team: dict, msg: dict, draft: dict | None) -> dict:
     return data["issueCreate"]["issue"]
 
 
-def sync(slack: WebClient, channel: str, todos: list[dict], is_done, is_cancelled) -> str:
-    """동기화하고 로그용 한 줄 요약을 돌려준다."""
+def link_payload(issue_id: str, msg: dict) -> dict:
+    # applied_edit: 이슈에 반영한 마지막 수정 댓글 ts — 같은 수정을 두 번 반영하지 않기 위함
+    return {"event_type": LINK_EVENT, "event_payload": {"issue_id": issue_id, "applied_edit": msg.get("edit_ts", "")}}
+
+
+def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_done, is_cancelled) -> str:
+    """동기화하고 로그용 한 줄 요약을 돌려준다. todos의 text는 스레드 수정본이 반영된 상태."""
     team = load_team(os.environ["LINEAR_TEAM_KEY"])
-    links = {m["ts"]: find_link(slack, channel, m) for m in todos}
+    link_msgs = {m["ts"]: find_link(threads.get(m["ts"], [])) for m in todos}
+    links = {ts: r["metadata"]["event_payload"]["issue_id"] for ts, r in link_msgs.items() if r}
 
     # 1) 이슈가 없는 남은 할 일 → 생성 (이미 끝냈거나 취소한 할 일은 만들지 않음)
-    new = [m for m in todos if not links[m["ts"]] and not is_done(m) and not is_cancelled(m)]
-    drafts = draft_issues(new) if new else {}
+    new = [m for m in todos if m["ts"] not in links and not is_done(m) and not is_cancelled(m)]
+    # 스레드로 수정했는데 아직 이슈에 반영 안 된 할 일 → 제목·설명 갱신
+    edited = [
+        m for m in todos
+        if m["ts"] in links and m.get("edit_ts")
+        and link_msgs[m["ts"]]["metadata"]["event_payload"].get("applied_edit") != m["edit_ts"]
+    ]
+    drafts = draft_issues(new + edited) if new or edited else {}
     for m in new:
         issue = create_issue(team, m, drafts.get(m["ts"]))
         slack.chat_postMessage(
@@ -155,22 +166,30 @@ def sync(slack: WebClient, channel: str, todos: list[dict], is_done, is_cancelle
             thread_ts=m["ts"],
             text=f"🔗 Linear <{issue['url']}|{issue['identifier']}>",
             unfurl_links=False,
-            metadata={"event_type": LINK_EVENT, "event_payload": {"issue_id": issue["id"]}},
+            metadata=link_payload(issue["id"], m),
         )
+    for m in edited:
+        gql(
+            """mutation($id: String!, $input: IssueUpdateInput!) {
+              issueUpdate(id: $id, input: $input) { success }
+            }""",
+            {"id": links[m["ts"]], "input": issue_fields(team, m, drafts.get(m["ts"]))},
+        )
+        link = link_msgs[m["ts"]]
+        slack.chat_update(channel=channel, ts=link["ts"], text=link["text"], metadata=link_payload(links[m["ts"]], m))
 
     # 2) 이미 있는 이슈 → Slack 리액션에 맞춰 상태 변경
-    linked = {ts: iid for ts, iid in links.items() if iid}
     changed = 0
-    if linked:
+    if links:
         data = gql(
             """query($ids: [ID!]) {
               issues(filter: {id: {in: $ids}}, first: 100) { nodes { id state { type } } }
             }""",
-            {"ids": list(linked.values())},
+            {"ids": list(links.values())},
         )
         current = {n["id"]: n["state"]["type"] for n in data["issues"]["nodes"]}
         for m in todos:
-            iid = linked.get(m["ts"])
+            iid = links.get(m["ts"])
             if not iid or iid not in current:
                 continue  # Linear에서 이슈를 지운 경우
             if is_cancelled(m):
@@ -190,4 +209,4 @@ def sync(slack: WebClient, channel: str, todos: list[dict], is_done, is_cancelle
                 )
                 changed += 1
 
-    return f"Linear 이슈 생성 {len(new)}건, 상태 변경 {changed}건"
+    return f"Linear 이슈 생성 {len(new)}건, 내용 수정 {len(edited)}건, 상태 변경 {changed}건"

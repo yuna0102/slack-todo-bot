@@ -3,6 +3,7 @@
 - 할 일이 등록될 때(단축어 → workflow_dispatch)와 정해진 시간에 실행된다
 - 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 새로 올리고 이전 것은 삭제, 완료 목록은 스레드 댓글
 - LINEAR_API_KEY가 있으면 할 일을 Linear 이슈로도 동기화 (linear_sync.py)
+- 할 일 스레드에 댓글을 달면 마지막 댓글이 그 할 일의 수정본
 - ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
@@ -107,6 +108,31 @@ def todo_messages(messages: list[dict]) -> list[dict]:
     ]
 
 
+def fetch_threads(channel: str, todos: list[dict]) -> dict[str, list[dict]]:
+    """댓글이 달린 할 일의 스레드 댓글(원글 제외)을 읽는다. {할 일 ts: 댓글들}"""
+    threads = {}
+    for m in todos:
+        if m.get("reply_count"):
+            replies = slack.conversations_replies(
+                channel=channel, ts=m["ts"], include_all_metadata=True
+            )["messages"]
+            threads[m["ts"]] = [r for r in replies if r["ts"] != m["ts"]]
+    return threads
+
+
+def apply_edits(todos: list[dict], threads: dict[str, list[dict]]):
+    """할 일 스레드에 내가 쓴 마지막 댓글을 수정본으로 보고 할 일 내용을 바꾼다."""
+    for m in todos:
+        mine = [
+            r for r in threads.get(m["ts"], [])
+            # 봇이 단 링크 댓글 등은 제외 — 사람이 쓴 댓글엔 bot_id가 없다
+            if not r.get("bot_id") and r.get("text", "").strip()
+        ]
+        if mine:
+            m["text"] = mine[-1]["text"]
+            m["edit_ts"] = mine[-1]["ts"]
+
+
 def classify(messages: list[dict], since: float):
     # ❌가 달리면 완료든 아니든 목록에서 뺀다
     todos = [m for m in todo_messages(messages) if not is_cancelled(m)]
@@ -197,6 +223,10 @@ def main():
     # 레포가 공개라 로그도 공개 — ID나 이름은 찍지 않는다
     print(f"읽은 대화: {describe(channel)}, 최근 {LOOKBACK_DAYS}일 메시지 {len(messages)}건")
 
+    todos = todo_messages(messages)
+    threads = fetch_threads(channel, todos)
+    apply_edits(todos, threads)  # messages 안의 같은 dict를 고치므로 아래 분류에도 반영된다
+
     start = week_start()
     key = week_key(start)
     remaining, done = classify(messages, start.timestamp())
@@ -206,7 +236,7 @@ def main():
     if LINEAR_ENABLED:
         # Linear가 실패해도 랩업은 올리고, 실행은 마지막에 실패로 표시 (레포 공개라 이슈 번호는 안 찍음)
         try:
-            print(linear_sync.sync(slack, channel, todo_messages(messages), is_done, is_cancelled))
+            print(linear_sync.sync(slack, channel, todos, threads, is_done, is_cancelled))
         except Exception as e:
             linear_error = e
             print(f"Linear 동기화 실패: {e}", file=sys.stderr)
