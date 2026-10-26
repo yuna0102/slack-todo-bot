@@ -15,6 +15,8 @@ import urllib.request
 import anthropic
 from slack_sdk import WebClient
 
+import due
+
 LINK_EVENT = "todo_linear"
 URGENT = re.compile(r"긴급|급함|급해|asap", re.IGNORECASE)
 
@@ -91,7 +93,8 @@ def find_link(replies: list[dict]) -> dict | None:
 
 def draft_issues(todos: list[dict]) -> dict[str, dict]:
     """받아쓰기 메모를 이슈 제목/카테고리로 다듬는다. {ts: {title, category}}"""
-    items = "\n".join(f"{m['ts']}\t{m['text'].strip()}" for m in todos)
+    # 날짜 말머리('오늘' 등)는 마감일로 따로 넣으니 제목엔 넣지 않는다
+    items = "\n".join(f"{m['ts']}\t{due.parse(m)[0]}" for m in todos)
     response = anthropic.Anthropic().beta.messages.create(
         model="claude-opus-5-5",
         max_tokens=4000,
@@ -117,11 +120,14 @@ def draft_issues(todos: list[dict]) -> dict[str, dict]:
 
 def issue_fields(team: dict, msg: dict, draft: dict | None) -> dict:
     raw = msg["text"].strip()
-    title = (draft or {}).get("title") or raw
+    text, due_date = due.parse(msg)
+    title = (draft or {}).get("title") or text
     fields = {
         "title": title[:200],
         "description": f"Slack에서 음성으로 등록한 할 일\n\n> {raw}",
         "priority": 1 if URGENT.search(raw) else 0,
+        # 수정으로 말머리가 빠지면 None으로 보내 마감일을 지운다
+        "dueDate": due_date.isoformat() if due_date else None,
     }
     if draft and draft.get("category"):
         fields["labelIds"] = [label_id(team, draft["category"])]

@@ -15,6 +15,7 @@ from datetime import datetime, timedelta, timezone
 import anthropic
 from slack_sdk import WebClient
 
+import due
 import linear_sync
 
 KST = timezone(timedelta(hours=9))
@@ -85,7 +86,11 @@ def is_cancelled(msg: dict) -> bool:
 
 def fmt(msg: dict) -> str:
     t = datetime.fromtimestamp(float(msg["ts"]), KST).strftime("%m/%d %H:%M")
-    return f"- ({t}) {msg['text'].strip()}"
+    text, due_date = due.parse(msg)
+    if not due_date:
+        return f"- ({t}) {text}"
+    overdue = " 지남" if due_date < datetime.now(KST).date() else ""
+    return f"- ({t}) [마감 {due_date:%m/%d}{overdue}] {text}"
 
 
 def week_start() -> datetime:
@@ -193,6 +198,8 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
             "같은 카테고리끼리 이어서 나열해. "
             "메모에 '긴급'·'급함'·'ASAP'처럼 급하다는 표현이 있는 항목은 목록 맨 위에 두고 "
             "맨 앞에 🚨 를 붙여 (예: • 🚨 [업무] 견적서 보내기). 그 외 항목엔 🚨 금지. "
+            "메모에 [마감 MM/DD]가 붙은 항목은 작업명 뒤에 ` · 📅 MM/DD`를 붙이고, "
+            "[마감 MM/DD 지남]이면 ` · ⏰ MM/DD 지남`을 붙여. 마감이 없는 항목엔 날짜를 붙이지 마.\n"
             "남은 할 일이 없으면 이 제목과 목록은 생략.\n"
             f"그다음 줄에 정확히 {DONE_MARKER} 만 쓰고, 그 아래에 이번 주 완료한 할 일을 "
             "• 목록으로 (카테고리 없이, 제목 없이). 완료한 게 없으면 마커 아래를 비워 둬.\n"
