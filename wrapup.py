@@ -4,7 +4,7 @@
 - 주(월요일 00:00 KST 시작)마다 랩업 메시지 1개: 새로 올리고 이전 것은 삭제, 완료 목록은 스레드 댓글
 - LINEAR_API_KEY가 있으면 할 일을 Linear 이슈로도 동기화 (linear_sync.py)
 - 할 일 스레드에 댓글을 달면 마지막 댓글이 그 할 일의 수정본
-- ⏳ = 진행 중(Linear In Progress), ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
+- 👀 = 진행 중(Linear In Progress), ✅ / ☑️ / ✔️ 리액션이 달린 할 일 = 완료, ❌ / ❎ = 취소(목록에서 제외), 나머지 = 남은 할 일 (LOOKBACK_DAYS 이내)
 """
 
 import hashlib
@@ -24,7 +24,7 @@ KST = timezone(timedelta(hours=9))
 WRAPUP_EVENT = "todo_wrapup"
 DONE_REACTIONS = {"white_check_mark", "heavy_check_mark", "ballot_box_with_check"}
 CANCEL_REACTIONS = {"x", "negative_squared_cross_mark"}
-IN_PROGRESS_REACTIONS = {"hourglass_flowing_sand", "hourglass"}
+IN_PROGRESS_REACTIONS = {"eyes", "hourglass_flowing_sand", "hourglass"}
 HEADER = "*TBD Wrap-up* ५✍🏼"
 LIST_TITLE = "*TBD List ට ̫ ට՞ ՞*"
 
@@ -222,7 +222,7 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
             "맨 앞에 🚨 를 붙여 (예: • 🚨 [업무] 견적서 보내기). 그 외 항목엔 🚨 금지. "
             "메모에 [마감 MM/DD]가 붙은 항목은 작업명 뒤에 ` · 📅 MM/DD`를 붙이고, "
             "[마감 MM/DD 지남]이면 ` · ⏰ MM/DD 지남`을 붙여. 마감이 없는 항목엔 날짜를 붙이지 마. "
-            "[진행 중]이 붙은 항목은 작업명 바로 뒤(날짜 앞)에 ` · ⏳`를 붙여. "
+            "[진행 중]이 붙은 항목은 작업명 바로 뒤(날짜 앞)에 ` · 👀`를 붙여. "
             "메모의 [회사]/[개인용] 표시는 보낼 곳이야(카테고리 아님). 각 항목 맨 앞(🚨가 있으면 🚨 바로 뒤)에 "
             "[회사]면 🏢, [개인용]이면 🛁 를 붙여 (예: • 🏢 [업무] QA 요청, • 🛁 [개인] 장보기, "
             "• 🚨 🏢 [업무] 견적서 보내기).\n"
