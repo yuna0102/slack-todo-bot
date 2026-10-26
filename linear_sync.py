@@ -1,7 +1,7 @@
 """Slack 할 일을 Linear 이슈로 동기화한다. 상태는 Slack이 기준.
 
 - 워크스페이스: 개인(LINEAR_API_KEY / LINEAR_TEAM_KEY), 회사(LINEAR_TEAM_WS_API_KEY / LINEAR_TEAM_WS_TEAM_KEY)
-  말머리 '회사' → 회사만, '같이' → 둘 다, 없으면 개인만 (due.py)
+  말머리 '회사' → 회사만, 없으면 개인만 (due.py)
 - 아직 이슈가 없는 남은 할 일 → 이슈 생성 + 할 일 스레드에 이슈 링크 댓글(메타데이터로 이슈 ID 기록)
 - 할 일 스레드 댓글로 수정하면 이슈 제목·설명도 갱신, 말머리를 바꿔 보낼 곳을 바꾸면 빠진 쪽 이슈는 Canceled
 - ✅ → Done, ❌ → Canceled, 리액션을 떼면 완료/취소된 이슈를 다시 Todo로
@@ -178,7 +178,7 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
     names = {w[0] for w in workspaces}
     wanted = {m["ts"]: due.parse(m)[2] for m in todos}
     if any(r - names for r in wanted.values()):
-        print("회사 Linear 키가 없어 '회사'·'같이' 할 일 일부를 건너뜁니다.")
+        print("회사 Linear 키가 없어 '회사' 할 일을 건너뜁니다.")
 
     link_msgs = {
         ws: {m["ts"]: r for m in todos if (r := find_link(threads.get(m["ts"], []), ws))}

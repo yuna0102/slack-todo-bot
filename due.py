@@ -1,6 +1,6 @@
 """할 일 맨 앞의 말머리를 해석한다.
 
-- 보낼 곳: '회사' → 회사(팀) 워크스페이스만, '같이' → 개인 + 회사, 없으면 개인만
+- 보낼 곳: '회사' → 회사(팀) 워크스페이스만, 없으면 개인만
 - 마감일: '오늘'·'내일' → 마감일, '언젠가' → 마감 없음
 - 말머리는 순서 상관없이 이어 붙일 수 있다 (예: "회사 오늘 QA 요청")
 """
@@ -10,10 +10,10 @@ from datetime import date, datetime, timedelta, timezone
 
 KST = timezone(timedelta(hours=9))
 PREFIX = re.compile(
-    r"^\s*(회사|같이|오늘|내일|언젠가)(?:은|는|까지|중에|중으로)?(?=[\s,.:~-]|$)[\s,.:~-]*"
+    r"^\s*(회사|오늘|내일|언젠가)(?:은|는|까지|중에|중으로)?(?=[\s,.:~-]|$)[\s,.:~-]*"
 )
 OFFSET = {"오늘": 0, "내일": 1}
-ROUTES = {"회사": {"team"}, "같이": {"personal", "team"}}
+ROUTES = {"회사": {"team"}}
 
 
 def parse(msg: dict) -> tuple[str, date | None, set[str]]:
