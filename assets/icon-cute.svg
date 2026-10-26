@@ -1,0 +1,95 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFC8E6"/>
+      <stop offset="0.5" stop-color="#E4D2FF"/>
+      <stop offset="1" stop-color="#C6E6FF"/>
+    </linearGradient>
+    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
+      <path d="M64 0H0V64" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="3"/>
+    </pattern>
+    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#FFF4FA"/>
+    </linearGradient>
+    <linearGradient id="pencil" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#FFE98A"/>
+      <stop offset="1" stop-color="#FFD24D"/>
+    </linearGradient>
+    <symbol id="spark" viewBox="-50 -50 100 100">
+      <path d="M0-48 C6-12 12-6 48 0 C12 6 6 12 0 48 C-6 12-12 6-48 0 C-12-6-6-12 0-48Z"/>
+    </symbol>
+    <symbol id="heart" viewBox="-50 -46 100 92">
+      <path d="M0 40 C-60 0-44-46-14-40 C-4-38 0-30 0-26 C0-30 4-38 14-40 C44-46 60 0 0 40Z"/>
+    </symbol>
+  </defs>
+
+  <!-- 배경 -->
+  <rect width="1024" height="1024" fill="url(#bg)"/>
+  <rect width="1024" height="1024" fill="url(#grid)"/>
+
+  <!-- 배경 반짝이·하트 -->
+  <g fill="#FFFFFF">
+    <use href="#spark" x="96" y="120" width="120" height="120"/>
+    <use href="#spark" x="820" y="96" width="96" height="96"/>
+    <use href="#spark" x="842" y="760" width="110" height="110"/>
+    <use href="#spark" x="70" y="800" width="80" height="80"/>
+  </g>
+  <g fill="#FF6FAE" stroke="#3B2547" stroke-width="5">
+    <use href="#heart" x="770" y="250" width="110" height="100" transform="rotate(14 825 300)"/>
+    <use href="#heart" x="110" y="430" width="80" height="74" transform="rotate(-16 150 467)"/>
+  </g>
+
+  <!-- 메모장 캐릭터 (스티커 흰 테두리 + 진한 외곽선) -->
+  <g transform="rotate(-7 512 540)">
+    <rect x="232" y="232" width="560" height="620" rx="84" fill="#FFFFFF"/>
+    <rect x="252" y="252" width="520" height="580" rx="68" fill="url(#paper)" stroke="#3B2547" stroke-width="14"/>
+    <!-- 상단 띠 -->
+    <path d="M252 340 V320 A68 68 0 0 1 320 252 H704 A68 68 0 0 1 772 320 V340 Z" fill="#FF9FCB" stroke="#3B2547" stroke-width="14" stroke-linejoin="round"/>
+    <!-- 스프링 고리 -->
+    <g fill="#FFFFFF" stroke="#3B2547" stroke-width="12">
+      <rect x="330" y="206" width="36" height="92" rx="18"/>
+      <rect x="440" y="206" width="36" height="92" rx="18"/>
+      <rect x="550" y="206" width="36" height="92" rx="18"/>
+      <rect x="660" y="206" width="36" height="92" rx="18"/>
+    </g>
+
+    <!-- 얼굴 -->
+    <g>
+      <ellipse cx="420" cy="470" rx="34" ry="44" fill="#3B2547"/>
+      <ellipse cx="604" cy="470" rx="34" ry="44" fill="#3B2547"/>
+      <circle cx="432" cy="452" r="13" fill="#FFFFFF"/>
+      <circle cx="616" cy="452" r="13" fill="#FFFFFF"/>
+      <circle cx="410" cy="488" r="6" fill="#FFFFFF"/>
+      <circle cx="594" cy="488" r="6" fill="#FFFFFF"/>
+      <ellipse cx="362" cy="532" rx="40" ry="22" fill="#FF8DC0" opacity="0.75"/>
+      <ellipse cx="662" cy="532" rx="40" ry="22" fill="#FF8DC0" opacity="0.75"/>
+      <path d="M478 524 Q495 548 512 526 Q529 548 546 524" fill="none" stroke="#3B2547" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
+    </g>
+
+    <!-- 체크리스트 -->
+    <g stroke="#3B2547" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
+      <rect x="330" y="618" width="66" height="66" rx="16" fill="#C9F2D8"/>
+      <path d="M344 650 L360 667 L386 630" fill="none" stroke-width="12"/>
+      <line x1="430" y1="651" x2="690" y2="651" stroke="#E3C8F2" stroke-width="16"/>
+      <rect x="330" y="720" width="66" height="66" rx="16" fill="#FFFFFF"/>
+      <line x1="430" y1="753" x2="620" y2="753" stroke="#E3C8F2" stroke-width="16"/>
+    </g>
+  </g>
+
+  <!-- 연필 -->
+  <g transform="rotate(38 790 700)">
+    <rect x="752" y="470" width="80" height="300" rx="10" fill="url(#pencil)" stroke="#3B2547" stroke-width="12"/>
+    <line x1="792" y1="480" x2="792" y2="760" stroke="#F2B92E" stroke-width="8"/>
+    <rect x="752" y="410" width="80" height="70" rx="18" fill="#FF9FCB" stroke="#3B2547" stroke-width="12"/>
+    <rect x="752" y="466" width="80" height="22" fill="#C9C3D9" stroke="#3B2547" stroke-width="10"/>
+    <path d="M752 770 L792 860 L832 770 Z" fill="#FFE2C2" stroke="#3B2547" stroke-width="12" stroke-linejoin="round"/>
+    <path d="M778 830 L792 860 L806 830 Z" fill="#3B2547"/>
+  </g>
+
+  <!-- 앞쪽 반짝이 -->
+  <g fill="#FFF7A8" stroke="#3B2547" stroke-width="5">
+    <use href="#spark" x="690" y="150" width="90" height="90"/>
+    <use href="#spark" x="150" y="610" width="70" height="70"/>
+  </g>
+</svg>

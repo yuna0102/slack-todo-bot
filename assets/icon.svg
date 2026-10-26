@@ -1,95 +1,110 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#FFC8E6"/>
-      <stop offset="0.5" stop-color="#E4D2FF"/>
-      <stop offset="1" stop-color="#C6E6FF"/>
-    </linearGradient>
-    <pattern id="grid" width="64" height="64" patternUnits="userSpaceOnUse">
-      <path d="M64 0H0V64" fill="none" stroke="#FFFFFF" stroke-opacity="0.45" stroke-width="3"/>
-    </pattern>
-    <linearGradient id="paper" x1="0" y1="0" x2="0" y2="1">
+    <radialGradient id="bg" cx="0.5" cy="0.42" r="0.75">
+      <stop offset="0" stop-color="#1C2133"/>
+      <stop offset="0.55" stop-color="#0C0F18"/>
+      <stop offset="1" stop-color="#05060A"/>
+    </radialGradient>
+    <radialGradient id="glow" cx="0.5" cy="0.5" r="0.5">
+      <stop offset="0" stop-color="#7B8CFF" stop-opacity="0.45"/>
+      <stop offset="0.6" stop-color="#5A3BFF" stop-opacity="0.12"/>
+      <stop offset="1" stop-color="#5A3BFF" stop-opacity="0"/>
+    </radialGradient>
+    <!-- 크롬: 밝은/어두운 띠를 번갈아 반사광처럼 -->
+    <linearGradient id="chrome" x1="0" y1="0" x2="0.35" y2="1">
       <stop offset="0" stop-color="#FFFFFF"/>
-      <stop offset="1" stop-color="#FFF4FA"/>
+      <stop offset="0.18" stop-color="#C9CFDA"/>
+      <stop offset="0.36" stop-color="#5D6575"/>
+      <stop offset="0.5" stop-color="#F4F6FA"/>
+      <stop offset="0.62" stop-color="#8E96A6"/>
+      <stop offset="0.8" stop-color="#2B303B"/>
+      <stop offset="1" stop-color="#B7BECB"/>
     </linearGradient>
-    <linearGradient id="pencil" x1="0" y1="0" x2="1" y2="0">
-      <stop offset="0" stop-color="#FFE98A"/>
-      <stop offset="1" stop-color="#FFD24D"/>
+    <linearGradient id="chromeEdge" x1="0" y1="1" x2="1" y2="0">
+      <stop offset="0" stop-color="#3A404D"/>
+      <stop offset="0.5" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#4A5160"/>
     </linearGradient>
-    <symbol id="spark" viewBox="-50 -50 100 100">
-      <path d="M0-48 C6-12 12-6 48 0 C12 6 6 12 0 48 C-6 12-12 6-48 0 C-12-6-6-12 0-48Z"/>
+    <linearGradient id="iris" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7DF9FF"/>
+      <stop offset="0.35" stop-color="#8C7BFF"/>
+      <stop offset="0.7" stop-color="#FF8AD8"/>
+      <stop offset="1" stop-color="#7DF9FF"/>
+    </linearGradient>
+    <linearGradient id="check" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="0.3" stop-color="#D5DAE3"/>
+      <stop offset="0.48" stop-color="#6B7384"/>
+      <stop offset="0.56" stop-color="#F7F9FC"/>
+      <stop offset="0.8" stop-color="#9AA2B1"/>
+      <stop offset="1" stop-color="#3C4250"/>
+    </linearGradient>
+    <filter id="soft" x="-30%" y="-30%" width="160%" height="160%">
+      <feGaussianBlur stdDeviation="14"/>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="18" stdDeviation="20" flood-color="#000000" flood-opacity="0.7"/>
+    </filter>
+    <symbol id="star" viewBox="-50 -50 100 100">
+      <path d="M0-50 C4-10 10-4 50 0 C10 4 4 10 0 50 C-4 10-10 4-50 0 C-10-4-4-10 0-50Z"/>
     </symbol>
-    <symbol id="heart" viewBox="-50 -46 100 92">
-      <path d="M0 40 C-60 0-44-46-14-40 C-4-38 0-30 0-26 C0-30 4-38 14-40 C44-46 60 0 0 40Z"/>
-    </symbol>
+    <pattern id="grid" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M48 0H0V48" fill="none" stroke="#8C9BFF" stroke-opacity="0.07" stroke-width="2"/>
+    </pattern>
   </defs>
 
-  <!-- 배경 -->
   <rect width="1024" height="1024" fill="url(#bg)"/>
   <rect width="1024" height="1024" fill="url(#grid)"/>
+  <circle cx="512" cy="500" r="430" fill="url(#glow)"/>
 
-  <!-- 배경 반짝이·하트 -->
-  <g fill="#FFFFFF">
-    <use href="#spark" x="96" y="120" width="120" height="120"/>
-    <use href="#spark" x="820" y="96" width="96" height="96"/>
-    <use href="#spark" x="842" y="760" width="110" height="110"/>
-    <use href="#spark" x="70" y="800" width="80" height="80"/>
+  <!-- 궤도 + 노드 (인텔리전스 네트워크) -->
+  <g fill="none" stroke="#AAB6FF" stroke-opacity="0.28" stroke-width="3">
+    <ellipse cx="512" cy="512" rx="420" ry="150" transform="rotate(-24 512 512)"/>
+    <ellipse cx="512" cy="512" rx="420" ry="150" transform="rotate(36 512 512)"/>
   </g>
-  <g fill="#FF6FAE" stroke="#3B2547" stroke-width="5">
-    <use href="#heart" x="770" y="250" width="110" height="100" transform="rotate(14 825 300)"/>
-    <use href="#heart" x="110" y="430" width="80" height="74" transform="rotate(-16 150 467)"/>
+  <g stroke="#AAB6FF" stroke-opacity="0.35" stroke-width="2.5">
+    <line x1="158" y1="300" x2="246" y2="214"/>
+    <line x1="246" y1="214" x2="360" y2="168"/>
+    <line x1="820" y1="828" x2="900" y2="720"/>
+    <line x1="820" y1="828" x2="700" y2="880"/>
   </g>
-
-  <!-- 메모장 캐릭터 (스티커 흰 테두리 + 진한 외곽선) -->
-  <g transform="rotate(-7 512 540)">
-    <rect x="232" y="232" width="560" height="620" rx="84" fill="#FFFFFF"/>
-    <rect x="252" y="252" width="520" height="580" rx="68" fill="url(#paper)" stroke="#3B2547" stroke-width="14"/>
-    <!-- 상단 띠 -->
-    <path d="M252 340 V320 A68 68 0 0 1 320 252 H704 A68 68 0 0 1 772 320 V340 Z" fill="#FF9FCB" stroke="#3B2547" stroke-width="14" stroke-linejoin="round"/>
-    <!-- 스프링 고리 -->
-    <g fill="#FFFFFF" stroke="#3B2547" stroke-width="12">
-      <rect x="330" y="206" width="36" height="92" rx="18"/>
-      <rect x="440" y="206" width="36" height="92" rx="18"/>
-      <rect x="550" y="206" width="36" height="92" rx="18"/>
-      <rect x="660" y="206" width="36" height="92" rx="18"/>
-    </g>
-
-    <!-- 얼굴 -->
-    <g>
-      <ellipse cx="420" cy="470" rx="34" ry="44" fill="#3B2547"/>
-      <ellipse cx="604" cy="470" rx="34" ry="44" fill="#3B2547"/>
-      <circle cx="432" cy="452" r="13" fill="#FFFFFF"/>
-      <circle cx="616" cy="452" r="13" fill="#FFFFFF"/>
-      <circle cx="410" cy="488" r="6" fill="#FFFFFF"/>
-      <circle cx="594" cy="488" r="6" fill="#FFFFFF"/>
-      <ellipse cx="362" cy="532" rx="40" ry="22" fill="#FF8DC0" opacity="0.75"/>
-      <ellipse cx="662" cy="532" rx="40" ry="22" fill="#FF8DC0" opacity="0.75"/>
-      <path d="M478 524 Q495 548 512 526 Q529 548 546 524" fill="none" stroke="#3B2547" stroke-width="11" stroke-linecap="round" stroke-linejoin="round"/>
-    </g>
-
-    <!-- 체크리스트 -->
-    <g stroke="#3B2547" stroke-width="11" stroke-linecap="round" stroke-linejoin="round">
-      <rect x="330" y="618" width="66" height="66" rx="16" fill="#C9F2D8"/>
-      <path d="M344 650 L360 667 L386 630" fill="none" stroke-width="12"/>
-      <line x1="430" y1="651" x2="690" y2="651" stroke="#E3C8F2" stroke-width="16"/>
-      <rect x="330" y="720" width="66" height="66" rx="16" fill="#FFFFFF"/>
-      <line x1="430" y1="753" x2="620" y2="753" stroke="#E3C8F2" stroke-width="16"/>
-    </g>
+  <g fill="#DDE3FF">
+    <circle cx="158" cy="300" r="9"/>
+    <circle cx="246" cy="214" r="6"/>
+    <circle cx="360" cy="168" r="8"/>
+    <circle cx="900" cy="720" r="8"/>
+    <circle cx="820" cy="828" r="10"/>
+    <circle cx="700" cy="880" r="6"/>
+    <circle cx="896" cy="334" r="7"/>
+    <circle cx="128" cy="690" r="7"/>
   </g>
 
-  <!-- 연필 -->
-  <g transform="rotate(38 790 700)">
-    <rect x="752" y="470" width="80" height="300" rx="10" fill="url(#pencil)" stroke="#3B2547" stroke-width="12"/>
-    <line x1="792" y1="480" x2="792" y2="760" stroke="#F2B92E" stroke-width="8"/>
-    <rect x="752" y="410" width="80" height="70" rx="18" fill="#FF9FCB" stroke="#3B2547" stroke-width="12"/>
-    <rect x="752" y="466" width="80" height="22" fill="#C9C3D9" stroke="#3B2547" stroke-width="10"/>
-    <path d="M752 770 L792 860 L832 770 Z" fill="#FFE2C2" stroke="#3B2547" stroke-width="12" stroke-linejoin="round"/>
-    <path d="M778 830 L792 860 L806 830 Z" fill="#3B2547"/>
+  <!-- 무지개빛 글로우 링 -->
+  <circle cx="512" cy="512" r="300" fill="none" stroke="url(#iris)" stroke-width="22" filter="url(#soft)" opacity="0.9"/>
+
+  <!-- 크롬 링 -->
+  <g filter="url(#shadow)">
+    <circle cx="512" cy="512" r="300" fill="none" stroke="url(#chrome)" stroke-width="64"/>
+    <circle cx="512" cy="512" r="332" fill="none" stroke="url(#chromeEdge)" stroke-width="4" opacity="0.9"/>
+    <circle cx="512" cy="512" r="268" fill="none" stroke="url(#chromeEdge)" stroke-width="4" opacity="0.9"/>
+  </g>
+  <!-- 안쪽 유리 판 -->
+  <circle cx="512" cy="512" r="262" fill="#0A0D16" opacity="0.85"/>
+  <circle cx="512" cy="512" r="250" fill="none" stroke="url(#iris)" stroke-width="3" opacity="0.8"/>
+  <path d="M300 430 A250 250 0 0 1 640 290" fill="none" stroke="#FFFFFF" stroke-opacity="0.12" stroke-width="40" stroke-linecap="round"/>
+
+  <!-- 크롬 체크 -->
+  <g filter="url(#shadow)">
+    <path d="M378 530 L478 628 L668 404" fill="none" stroke="url(#iris)" stroke-width="96" stroke-linecap="round" stroke-linejoin="round" filter="url(#soft)" opacity="0.55"/>
+    <path d="M378 530 L478 628 L668 404" fill="none" stroke="#1A1E28" stroke-width="92" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M378 530 L478 628 L668 404" fill="none" stroke="url(#check)" stroke-width="80" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M380 520 L478 614 L660 398" fill="none" stroke="#FFFFFF" stroke-opacity="0.75" stroke-width="10" stroke-linecap="round" stroke-linejoin="round"/>
   </g>
 
-  <!-- 앞쪽 반짝이 -->
-  <g fill="#FFF7A8" stroke="#3B2547" stroke-width="5">
-    <use href="#spark" x="690" y="150" width="90" height="90"/>
-    <use href="#spark" x="150" y="610" width="70" height="70"/>
+  <!-- 크롬 반짝이 -->
+  <g filter="url(#shadow)">
+    <use href="#star" x="712" y="150" width="150" height="150" fill="url(#chrome)"/>
+    <use href="#star" x="168" y="742" width="84" height="84" fill="url(#chrome)"/>
   </g>
+  <use href="#star" x="752" y="190" width="70" height="70" fill="#FFFFFF" opacity="0.85"/>
 </svg>
