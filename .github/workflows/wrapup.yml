@@ -30,3 +30,5 @@ jobs:
           # 없으면 Linear 동기화는 건너뜀
           LINEAR_API_KEY: ${{ secrets.LINEAR_API_KEY }}
           LINEAR_TEAM_KEY: ${{ secrets.LINEAR_TEAM_KEY }}
+          LINEAR_TEAM_WS_API_KEY: ${{ secrets.LINEAR_TEAM_WS_API_KEY }}
+          LINEAR_TEAM_WS_TEAM_KEY: ${{ secrets.LINEAR_TEAM_WS_TEAM_KEY }}

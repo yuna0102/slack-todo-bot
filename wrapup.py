@@ -29,7 +29,7 @@ SLACK_BOT_TOKEN = os.environ["SLACK_BOT_TOKEN"]
 SLACK_TARGET = os.environ["SLACK_TARGET"]  # 채널 ID(C…/G…) 또는 내 유저 ID(U…, 앱 DM으로 보냄)
 LOOKBACK_DAYS = int(os.environ.get("LOOKBACK_DAYS", "14"))
 POST_WHEN_EMPTY = os.environ.get("POST_WHEN_EMPTY", "false").lower() == "true"
-LINEAR_ENABLED = bool(os.environ.get("LINEAR_API_KEY") and os.environ.get("LINEAR_TEAM_KEY"))
+LINEAR_ENABLED = bool(linear_sync.configured())
 
 slack = WebClient(token=SLACK_BOT_TOKEN)
 
@@ -86,11 +86,12 @@ def is_cancelled(msg: dict) -> bool:
 
 def fmt(msg: dict) -> str:
     t = datetime.fromtimestamp(float(msg["ts"]), KST).strftime("%m/%d %H:%M")
-    text, due_date = due.parse(msg)
-    if not due_date:
-        return f"- ({t}) {text}"
-    overdue = " 지남" if due_date < datetime.now(KST).date() else ""
-    return f"- ({t}) [마감 {due_date:%m/%d}{overdue}] {text}"
+    text, due_date, route = due.parse(msg)
+    tags = "[팀] " if "team" in route else ""
+    if due_date:
+        overdue = " 지남" if due_date < datetime.now(KST).date() else ""
+        tags += f"[마감 {due_date:%m/%d}{overdue}] "
+    return f"- ({t}) {tags}{text}"
 
 
 def week_start() -> datetime:
@@ -199,7 +200,8 @@ def summarize(remaining: list[dict], done: list[dict]) -> tuple[str, str, str]:
             "메모에 '긴급'·'급함'·'ASAP'처럼 급하다는 표현이 있는 항목은 목록 맨 위에 두고 "
             "맨 앞에 🚨 를 붙여 (예: • 🚨 [업무] 견적서 보내기). 그 외 항목엔 🚨 금지. "
             "메모에 [마감 MM/DD]가 붙은 항목은 작업명 뒤에 ` · 📅 MM/DD`를 붙이고, "
-            "[마감 MM/DD 지남]이면 ` · ⏰ MM/DD 지남`을 붙여. 마감이 없는 항목엔 날짜를 붙이지 마.\n"
+            "[마감 MM/DD 지남]이면 ` · ⏰ MM/DD 지남`을 붙여. 마감이 없는 항목엔 날짜를 붙이지 마. "
+            "메모에 [팀]이 붙은 항목은 작업명 뒤(날짜 앞)에 ` · 👥`를 붙여.\n"
             "남은 할 일이 없으면 이 제목과 목록은 생략.\n"
             f"그다음 줄에 정확히 {DONE_MARKER} 만 쓰고, 그 아래에 이번 주 완료한 할 일을 "
             "• 목록으로 (카테고리 없이, 제목 없이). 완료한 게 없으면 마커 아래를 비워 둬.\n"
