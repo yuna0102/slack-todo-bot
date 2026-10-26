@@ -129,7 +129,8 @@ def issue_fields(team: dict, msg: dict, draft: dict | None) -> dict:
 
 
 def create_issue(team: dict, msg: dict, draft: dict | None) -> dict:
-    issue = {"teamId": team["id"], **issue_fields(team, msg, draft)}
+    # 지정 안 하면 팀 기본값(보통 Backlog)으로 가서 Todo(첫 unstarted 상태)로 만든다
+    issue = {"teamId": team["id"], "stateId": team["states"]["unstarted"], **issue_fields(team, msg, draft)}
     data = gql(
         """mutation($input: IssueCreateInput!) {
           issueCreate(input: $input) { issue { id identifier url } }

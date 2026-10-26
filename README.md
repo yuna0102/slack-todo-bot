@@ -95,7 +95,7 @@
    - `LINEAR_TEAM_KEY` = 팀 Identifier (이슈 번호 `ABC-1`의 `ABC`)
 
 동작:
-- 남은 할 일 → 이슈 생성 (Claude가 제목을 다듬고 카테고리를 라벨로, 긴급 메모는 우선순위 Urgent), 할 일 스레드에 이슈 링크 댓글
+- 남은 할 일 → Todo 상태로 이슈 생성 (Claude가 제목을 다듬고 카테고리를 라벨로, 긴급 메모는 우선순위 Urgent), 할 일 스레드에 이슈 링크 댓글
 - ✅ → Done, ❌ → Canceled, 리액션을 떼면 다시 Todo
 - Linear에서 In Progress 등으로 바꾼 상태는 ✅/❌ 전까지 건드리지 않습니다
 
