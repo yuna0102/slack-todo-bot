@@ -4,6 +4,7 @@
   말머리 '회사' → 회사만, 없으면 개인만 (due.py)
 - 아직 이슈가 없는 남은 할 일 → 이슈 생성 + 할 일 스레드에 이슈 링크 댓글(메타데이터로 이슈 ID 기록)
 - 할 일 스레드 댓글로 수정하면 이슈 제목·설명도 갱신, 말머리를 바꿔 보낼 곳을 바꾸면 빠진 쪽 이슈는 Canceled
+- 이슈 담당자는 API 키 주인(나), 비어 있으면 채워 넣음
 - ✅ → Done, ❌ → Canceled, 리액션을 떼면 완료/취소된 이슈를 다시 Todo로
 - 키가 없는 워크스페이스는 건너뛴다
 """
@@ -70,6 +71,8 @@ def load_team(api_key: str, key: str) -> dict:
         } }""",
         {"id": nodes[0]["id"]},
     )["team"]
+    # 이슈는 키 주인(나)에게 할당 — 공개 레포라 이름을 코드에 적지 않는다
+    viewer = gql(api_key, "query { viewer { id } }")["viewer"]["id"]
 
     def first_state(kind: str) -> str:
         states = sorted(
@@ -79,6 +82,7 @@ def load_team(api_key: str, key: str) -> dict:
 
     return {
         "api_key": api_key,
+        "viewer": viewer,
         "id": team["id"],
         "states": {k: first_state(k) for k in ("unstarted", "completed", "canceled")},
         "labels": {l["name"]: l["id"] for l in team["labels"]["nodes"]},
@@ -153,7 +157,12 @@ def issue_fields(team: dict, msg: dict, draft: dict | None) -> dict:
 
 def create_issue(team: dict, msg: dict, draft: dict | None) -> dict:
     # 지정 안 하면 팀 기본값(보통 Backlog)으로 가서 Todo(첫 unstarted 상태)로 만든다
-    issue = {"teamId": team["id"], "stateId": team["states"]["unstarted"], **issue_fields(team, msg, draft)}
+    issue = {
+        "teamId": team["id"],
+        "stateId": team["states"]["unstarted"],
+        "assigneeId": team["viewer"],
+        **issue_fields(team, msg, draft),
+    }
     data = gql(
         team["api_key"],
         """mutation($input: IssueCreateInput!) {
@@ -201,7 +210,7 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
     to_draft = {m["ts"]: m for ms in (*new.values(), *edited.values()) for m in ms}
     drafts = draft_issues(list(to_draft.values())) if to_draft else {}
 
-    created = updated = changed = 0
+    created = updated = changed = assigned = 0
     for ws, label, key_env, team_env in workspaces:
         team = load_team(os.environ[key_env], os.environ[team_env])
 
@@ -241,11 +250,22 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
         data = gql(
             team["api_key"],
             """query($ids: [ID!]) {
-              issues(filter: {id: {in: $ids}}, first: 100) { nodes { id state { type } } }
+              issues(filter: {id: {in: $ids}}, first: 100) { nodes { id state { type } assignee { id } } }
             }""",
             {"ids": list(links.values())},
         )
         current = {n["id"]: n["state"]["type"] for n in data["issues"]["nodes"]}
+        # 담당자가 비어 있는 이슈(할당 기능 전에 만든 것 포함)는 나에게 할당
+        for n in data["issues"]["nodes"]:
+            if not n["assignee"]:
+                gql(
+                    team["api_key"],
+                    """mutation($id: String!, $user: String!) {
+                      issueUpdate(id: $id, input: {assigneeId: $user}) { success }
+                    }""",
+                    {"id": n["id"], "user": team["viewer"]},
+                )
+                assigned += 1
         for m in todos:
             iid = links.get(m["ts"])
             if not iid or iid not in current:
@@ -268,4 +288,4 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
                 )
                 changed += 1
 
-    return f"Linear({len(workspaces)}곳) 이슈 생성 {created}건, 내용 수정 {updated}건, 상태 변경 {changed}건"
+    return f"Linear({len(workspaces)}곳) 이슈 생성 {created}건, 내용 수정 {updated}건, 상태 변경 {changed}건, 담당자 지정 {assigned}건"
