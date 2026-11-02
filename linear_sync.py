@@ -5,7 +5,7 @@
 - 아직 이슈가 없는 남은 할 일 → 이슈 생성 + 할 일 스레드에 이슈 링크 댓글(메타데이터로 이슈 ID 기록)
 - 할 일 스레드 댓글로 수정하면 이슈 제목·설명도 갱신, 말머리를 바꿔 보낼 곳을 바꾸면 빠진 쪽 이슈는 Canceled
 - 이슈 담당자는 API 키 주인(나), 비어 있으면 채워 넣음
-- 👀 → In Progress, ✅ → Done, ❌ → Canceled, ✅·❌를 떼면 완료/취소된 이슈를 다시 Todo로
+- 👀 → In Progress, ✅ → Done, ❌ → Canceled, Linear에서 Done, Canceled로 바꾼 이슈는 Slack에 ✅, ❌가 없어도 되돌리지 않음
 - 키가 없는 워크스페이스는 건너뛴다
 """
 
@@ -270,14 +270,15 @@ def sync(slack: WebClient, channel: str, todos: list[dict], threads: dict, is_do
             iid = links.get(m["ts"])
             if not iid or iid not in current:
                 continue  # Linear에서 이슈를 지운 경우
+            slack_closed = is_cancelled(m) or is_done(m) or ws not in wanted[m["ts"]]
+            if current[iid] in ("completed", "canceled") and not slack_closed:
+                continue  # Linear에서 끝낸 이슈는 Slack에 ✅, ❌가 없어도 되돌리지 않음
             if is_cancelled(m) or ws not in wanted[m["ts"]]:
                 want = "canceled"  # ❌ 또는 말머리를 바꿔 이 워크스페이스에서 뺀 경우
             elif is_done(m):
                 want = "completed"
             elif is_in_progress(m):
                 want = "started"  # 👀 — 떼도 되돌리지 않음 (Linear에서 직접 바꾼 진행 중과 구분할 수 없어서)
-            elif current[iid] in ("completed", "canceled"):
-                want = "unstarted"  # 리액션을 뗐으면 다시 열기
             else:
                 continue  # 진행 중 등 Linear에서 바꾼 상태는 건드리지 않음
             if current[iid] != want:
