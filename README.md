@@ -99,7 +99,7 @@
 동작:
 - 남은 할 일 → Todo 상태로 이슈 생성 (Claude가 제목을 다듬고 카테고리를 라벨로, 긴급 메모는 우선순위 Urgent), 할 일 스레드에 이슈 링크 댓글
 - 담당자는 API 키를 발급한 본인 계정으로 자동 지정
-- 👀 → In Progress, ✅ → Done, ❌ → Canceled, ✅·❌를 떼면 다시 Todo
+- 👀 → In Progress, ✅ → Done, ❌ → Canceled, Linear에서 Done, Canceled로 바꾼 이슈는 Slack에 ✅, ❌가 없어도 되돌리지 않음(다시 열려면 Linear에서 상태를 바꿈)
 - Linear에서 In Progress 등으로 바꾼 상태는 ✅/❌ 전까지 건드리지 않습니다
 
 **회사(팀) 워크스페이스 (선택)**: 회사 워크스페이스에서 발급한 키와 팀 Identifier를 `LINEAR_TEAM_WS_API_KEY`, `LINEAR_TEAM_WS_TEAM_KEY`로 등록하면 말머리로 보낼 곳을 고릅니다.
